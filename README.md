@@ -1,3 +1,8 @@
+Word from the owner
+Look I have no idea what I am doing, please ignore like most of the stuff happening here. Maybe I get to make a server maybe not. 
+If I am fucking up really bad, uhhh, shoot me a message and Ill fix it.
+
+
 <p align="center"> <img alt="Space Station 14" width="880" height="300" src="https://raw.githubusercontent.com/space-wizards/asset-dump/de329a7898bb716b9d5ba9a0cd07f38e61f1ed05/github-logo.svg" /></p>
 
 Space Station 14 is a revived attempt at an SS13 remake.
