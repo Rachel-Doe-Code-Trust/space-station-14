@@ -1,50 +1,73 @@
-# Anything human specific (e.g. UI, input) goes under HumanMob_Content
+# Anything human specific (e.g. UI, input) goes under MobHuman
 - type: entity
   save: false
   name: Urist McHands
-  id: BaseHumanMob_Content
+  id: MobHumanBase
   description: A miserable pile of secrets.
   abstract: true
   components:
   - type: Tag
     tags:
-    - Teleportable
+    - CanPilot
     - FootstepSound
   - type: Reactive
     reactions:
     - !type:ExtinguishReaction
       touch: true
       reagents:
-      - chem.Water
+      - Water
     - !type:FlammableReaction
       touch: true
       reagents:
-      - chem.WeldingFuel
-      - chem.Thermite
-      - chem.Plasma
-      - chem.Ethanol
+      - WeldingFuel
+      - Thermite
+      - Plasma
+      - Ethanol
+      - Oil
     - !type:WashCreamPieReaction
       touch: true
       reagents:
-      - chem.Water
-      - chem.SpaceCleaner
+      - Water
+      - SpaceCleaner
   - type: Flashable
   - type: Hands
   - type: MovementSpeedModifier
   - type: MovedByPressure
   - type: Barotrauma
+    damage:
+      types:
+        Blunt: 1 #per second, scales with pressure and other constants.
   - type: DamageOnHighSpeedImpact
-    soundHit: /Audio/Effects/hit_kick.ogg
+    damage:
+      types:
+        Blunt: 5
+    soundHit:
+      path: /Audio/Effects/hit_kick.ogg
   - type: Hunger
+    damage:
+      types:
+        Blunt: 2
   - type: Thirst
+    damage:
+      types:
+        Blunt: 2
   # Organs
-  - type: SolutionContainer
-    maxVol: 250
-    caps: Injectable, Drawable
+  - type: SolutionContainerManager
+    solutions:
+      bloodstream:
+        maxVol: 250
+  - type: InjectableSolution
+    solution: bloodstream
+  - type: DrawableSolution
+    solution: bloodstream
   - type: Bloodstream
     max_volume: 100
-  # StatusEffects
-  - type: Stunnable
+  - type: StatusEffects
+    allowed:
+    - Stun
+    - KnockedDown
+    - SlowedDown
+    - Stutter
   # Other
   - type: Inventory
   - type: Clickable
@@ -133,6 +156,8 @@
       sprite: Mobs/Customization/human_hair.rsi
     - map: [ "enum.Slots.MASK" ]
     - map: [ "enum.Slots.HEAD" ]
+    - map: [ "enum.Slots.POCKET1" ]
+    - map: [ "enum.Slots.POCKET2" ]
   - type: Physics
     bodyType: KinematicController
     fixtures: # TODO: This needs a second fixture just for mob collisions.
@@ -148,25 +173,32 @@
       - SmallImpassable
       layer:
       - Opaque
-      - MobImpassable
   - type: AtmosExposed
   - type: Flammable
     fireSpread: true
     canResistFire: true
+    damage:
+      types:
+        Heat : 1 #per second, scales with number of fire 'stacks'
   - type: Temperature
     heatDamageThreshold: 360
     coldDamageThreshold: 260
     currentTemperature: 310.15
     specificHeat: 42
     tempDamageCoefficient: 0.1
+    coldDamage:
+      types:
+        Cold : 1 #per second, scales with temperature & other constants
+    heatDamage:
+      types:
+        Heat : 1 #per second, scales with temperature & other constants
   - type: HumanoidAppearance
   - type: Body
     template: HumanoidTemplate
     preset: HumanPreset
-    centerSlot: torso
   - type: Damageable
-    damageContainer: biologicalDamageContainer
-  - type: Metabolism
+    damageContainer: Biological
+  - type: Respirator
     metabolismHeat: 5000
     radiatedHeat: 400
     implicitHeatRegulation: 5000
@@ -179,6 +211,12 @@
     producesGases:
       Oxygen: 0.00045572916
       CarbonDioxide: 0.00015190972
+    damage:
+      types:
+        Asphyxiation: 1
+    damageRecovery:
+      types:
+        Asphyxiation: -1
   - type: Internals
   - type: MobState
     thresholds:
@@ -189,7 +227,7 @@
     thresholds:
     - trigger:
         !type:DamageTypeTrigger
-        type: Blunt
+        damageType: Blunt
         damage: 400
       behaviors:
       - !type:GibBehavior { }
@@ -205,6 +243,7 @@
       fireStackAlternateState: 3
     - type: CreamPiedVisualizer
       state: creampie_human
+    - type: HandsVisualizer
   - type: CombatMode
   - type: Climbing
   - type: Cuffable
@@ -215,6 +254,9 @@
     range: 0.8
     arcwidth: 30
     arc: fist
+    damage:
+      types:
+        Blunt: 5
   - type: Pullable
   - type: DoAfter
   - type: CreamPied
@@ -231,11 +273,16 @@
     safe: false
   - type: Speech
   - type: Emoting
+  - type: Grammar
+    attributes:
+      proper: true
+  - type: StandingState
+  - type: DoorBumpOpener
 
 - type: entity
   save: false
   name: Urist McHands
-  id: HumanMob_Dummy
+  id: MobHumanDummy
   abstract: true
   description: A dummy human meant to be used in character setup.
   components:
@@ -247,6 +294,7 @@
     - type: Sprite
       netsync: false
       drawdepth: Mobs
+      noRot: true
       # TODO BODY Turn these into individual body parts?
       layers:
       - map: ["enum.HumanoidVisualLayers.Chest"]
@@ -315,6 +363,8 @@
         sprite: Mobs/Customization/human_hair.rsi
       - map: ["enum.Slots.MASK"]
       - map: ["enum.Slots.HEAD"]
+      - map: [ "enum.Slots.POCKET1" ]
+      - map: [ "enum.Slots.POCKET2" ]
       - map: ["hand-left"]
       - map: ["hand-right"]
     - type: Physics
@@ -331,14 +381,13 @@
         - VaultImpassable
         - SmallImpassable
         layer:
-        - MobImpassable
+        - Opaque
     - type: HumanoidAppearance
     - type: Body
       template: HumanoidTemplate
       preset: HumanPreset
-      centerSlot: torso
     - type: Damageable
-      damageContainer: biologicalDamageContainer
+      damageContainer: Biological
     - type: MobState
       thresholds:
         0: !type:NormalMobState {}
