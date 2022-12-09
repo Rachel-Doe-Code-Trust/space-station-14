@@ -1,11 +1,9 @@
 using Content.Shared.Alert;
 using Content.Shared.Hands;
-using Content.Shared.Movement.EntitySystems;
+using Content.Shared.Movement.Systems;
 using Content.Shared.Physics.Pull;
 using Content.Shared.Pulling.Components;
 using JetBrains.Annotations;
-using Robust.Shared.GameObjects;
-using Robust.Shared.IoC;
 
 namespace Content.Shared.Pulling.Systems
 {
@@ -14,6 +12,7 @@ namespace Content.Shared.Pulling.Systems
     {
         [Dependency] private readonly SharedPullingSystem _pullSystem = default!;
         [Dependency] private readonly MovementSpeedModifierSystem _movementSpeedModifierSystem = default!;
+        [Dependency] private readonly AlertsSystem _alertsSystem = default!;
 
         public override void Initialize()
         {
@@ -47,8 +46,7 @@ namespace Content.Shared.Pulling.Systems
             if (args.Puller.Owner != uid)
                 return;
 
-            if (EntityManager.TryGetComponent(component.Owner, out SharedAlertsComponent? alerts))
-                alerts.ShowAlert(AlertType.Pulling);
+            _alertsSystem.ShowAlert(component.Owner, AlertType.Pulling);
 
             RefreshMovementSpeed(component);
         }
@@ -61,8 +59,8 @@ namespace Content.Shared.Pulling.Systems
             if (args.Puller.Owner != uid)
                 return;
 
-            if (EntityManager.TryGetComponent(component.Owner, out SharedAlertsComponent? alerts))
-                alerts.ClearAlert(AlertType.Pulling);
+            var euid = component.Owner;
+            _alertsSystem.ClearAlert(euid, AlertType.Pulling);
 
             RefreshMovementSpeed(component);
         }

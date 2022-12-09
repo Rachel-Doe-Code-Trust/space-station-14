@@ -1,87 +1,84 @@
-﻿using System;
-using System.Collections.Generic;
 using Content.Shared.ActionBlocker;
 using Content.Shared.DragDrop;
 using Content.Shared.Hands.Components;
-using Robust.Shared.GameObjects;
-using Robust.Shared.IoC;
+using Content.Shared.Inventory;
 using Robust.Shared.Serialization;
-using static Content.Shared.Inventory.EquipmentSlotDefines;
 
 namespace Content.Shared.Strip.Components
 {
     public abstract class SharedStrippableComponent : Component, IDraggable
     {
-        public override string Name => "Strippable";
-
-        public bool CanBeStripped(EntityUid by)
-        {
-            return by != Owner
-                   && IoCManager.Resolve<IEntityManager>().HasComponent<SharedHandsComponent>(@by)
-                   && EntitySystem.Get<ActionBlockerSystem>().CanInteract(@by);
-        }
-
         bool IDraggable.CanDrop(CanDropEvent args)
         {
-            return args.Target != args.Dragged
-                   && args.Target == args.User
-                   && CanBeStripped(args.User);
+            var ent = IoCManager.Resolve<IEntityManager>();
+            return args.Target != args.Dragged &&
+                args.Target == args.User &&
+                ent.HasComponent<SharedStrippingComponent>(args.User) &&
+                ent.HasComponent<SharedHandsComponent>(args.User) &&
+                ent.EntitySysManager.GetEntitySystem<ActionBlockerSystem>().CanInteract(args.User, args.Dragged);
         }
 
         public abstract bool Drop(DragDropEvent args);
-
-        [NetSerializable, Serializable]
-        public enum StrippingUiKey
-        {
-            Key,
-        }
     }
 
     [NetSerializable, Serializable]
-    public class StrippingInventoryButtonPressed : BoundUserInterfaceMessage
+    public enum StrippingUiKey : byte
     {
-        public Slots Slot { get; }
+        Key,
+    }
 
-        public StrippingInventoryButtonPressed(Slots slot)
+    [NetSerializable, Serializable]
+    public sealed class StrippingSlotButtonPressed : BoundUserInterfaceMessage
+    {
+        public readonly string Slot;
+
+        public readonly bool IsHand;
+
+        public StrippingSlotButtonPressed(string slot, bool isHand)
         {
             Slot = slot;
+            IsHand = isHand;
         }
     }
 
     [NetSerializable, Serializable]
-    public class StrippingHandButtonPressed : BoundUserInterfaceMessage
+    public sealed class StrippingEnsnareButtonPressed : BoundUserInterfaceMessage
     {
-        public string Hand { get; }
-
-        public StrippingHandButtonPressed(string hand)
+        public StrippingEnsnareButtonPressed()
         {
-            Hand = hand;
         }
     }
 
-    [NetSerializable, Serializable]
-    public class StrippingHandcuffButtonPressed : BoundUserInterfaceMessage
+    public abstract class BaseBeforeStripEvent : EntityEventArgs, IInventoryRelayEvent
     {
-        public EntityUid Handcuff { get; }
+        public readonly float InitialTime;
+        public float Time => MathF.Max(InitialTime * Multiplier + Additive, 0f);
+        public float Additive = 0;
+        public float Multiplier = 1f;
+        public bool Stealth;
 
-        public StrippingHandcuffButtonPressed(EntityUid handcuff)
+        public SlotFlags TargetSlots { get; } = SlotFlags.GLOVES;
+
+        public BaseBeforeStripEvent(float initialTime, bool stealth = false)
         {
-            Handcuff = handcuff;
+            InitialTime = initialTime;
+            Stealth = stealth;
         }
     }
 
-    [NetSerializable, Serializable]
-    public class StrippingBoundUserInterfaceState : BoundUserInterfaceState
+    /// <summary>
+    /// Used to modify strip times. Raised directed at the user.
+    /// </summary>
+    public sealed class BeforeStripEvent : BaseBeforeStripEvent
     {
-        public Dictionary<Slots, string> Inventory { get; }
-        public Dictionary<string, string> Hands { get; }
-        public Dictionary<EntityUid, string> Handcuffs { get; }
+        public BeforeStripEvent(float initialTime, bool stealth = false) : base(initialTime, stealth) { }
+    }
 
-        public StrippingBoundUserInterfaceState(Dictionary<Slots, string> inventory, Dictionary<string, string> hands, Dictionary<EntityUid, string> handcuffs)
-        {
-            Inventory = inventory;
-            Hands = hands;
-            Handcuffs = handcuffs;
-        }
+    /// <summary>
+    /// Used to modify strip times. Raised directed at the target.
+    /// </summary>
+    public sealed class BeforeGettingStrippedEvent : BaseBeforeStripEvent
+    {
+        public BeforeGettingStrippedEvent(float initialTime, bool stealth = false) : base(initialTime, stealth) { }
     }
 }

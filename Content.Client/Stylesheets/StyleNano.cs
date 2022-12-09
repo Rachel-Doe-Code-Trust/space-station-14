@@ -1,27 +1,24 @@
 using System.Linq;
-using Content.Client.Actions.UI;
 using Content.Client.ContextMenu.UI;
 using Content.Client.Examine;
-using Content.Client.HUD;
-using Content.Client.HUD.UI;
+using Content.Client.PDA;
 using Content.Client.Resources;
-using Content.Client.Targeting;
+using Content.Client.Targeting.UI;
 using Content.Client.UserInterface.Controls;
 using Content.Client.Verbs.UI;
+using Content.Shared.Verbs;
 using Robust.Client.Graphics;
 using Robust.Client.ResourceManagement;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
 using Robust.Client.UserInterface.CustomControls;
-using Robust.Shared.Maths;
-using Robust.Shared.Utility;
 using static Robust.Client.UserInterface.StylesheetHelpers;
 
 namespace Content.Client.Stylesheets
 {
     public static class ResCacheExtension
     {
-        public static Font notoStack(this IResourceCache resCache, string variation = "Regular", int size = 10, bool display = false)
+        public static Font NotoStack(this IResourceCache resCache, string variation = "Regular", int size = 10, bool display = false)
         {
             var ds = display ? "Display" : "";
             var sv = variation.StartsWith("Bold") ? "Bold" : "Regular";
@@ -40,6 +37,7 @@ namespace Content.Client.Stylesheets
         }
 
     }
+    // STLYE SHEETS WERE A MISTAKE. KILL ALL OF THIS WITH FIRE
     public sealed class StyleNano : StyleBase
     {
         public const string StyleClassBorderedWindowPanel = "BorderedWindowPanel";
@@ -67,13 +65,20 @@ namespace Content.Client.Stylesheets
         public const string StyleClassSliderRed = "Red";
         public const string StyleClassSliderGreen = "Green";
         public const string StyleClassSliderBlue = "Blue";
+        public const string StyleClassSliderWhite = "White";
 
         public const string StyleClassLabelHeadingBigger = "LabelHeadingBigger";
         public const string StyleClassLabelKeyText = "LabelKeyText";
         public const string StyleClassLabelSecondaryColor = "LabelSecondaryColor";
         public const string StyleClassLabelBig = "LabelBig";
         public const string StyleClassButtonBig = "ButtonBig";
-        public const string StyleClassPopupMessage = "PopupMessage";
+
+        public const string StyleClassPopupMessageSmall = "PopupMessageSmall";
+        public const string StyleClassPopupMessageSmallCaution = "PopupMessageSmallCaution";
+        public const string StyleClassPopupMessageMedium = "PopupMessageMedium";
+        public const string StyleClassPopupMessageMediumCaution = "PopupMessageMediumCaution";
+        public const string StyleClassPopupMessageLarge = "PopupMessageLarge";
+        public const string StyleClassPopupMessageLargeCaution = "PopupMessageLargeCaution";
 
         public static readonly Color NanoGold = Color.FromHex("#A88B5E");
         public static readonly Color GoodGreenFore = Color.FromHex("#31843E");
@@ -93,11 +98,20 @@ namespace Content.Client.Stylesheets
         public static readonly Color ButtonColorCautionPressed = Color.FromHex("#3e6c45");
         public static readonly Color ButtonColorCautionDisabled = Color.FromHex("#602a2a");
 
+        public static readonly Color ButtonColorGoodDefault = Color.FromHex("#3E6C45");
+        public static readonly Color ButtonColorGoodHovered = Color.FromHex("#31843E");
+
         // Context menu button colors
         public static readonly Color ButtonColorContext = Color.FromHex("#1119");
         public static readonly Color ButtonColorContextHover = Color.DarkSlateGray;
         public static readonly Color ButtonColorContextPressed = Color.LightSlateGray;
         public static readonly Color ButtonColorContextDisabled = Color.Black;
+
+        // Examine button colors
+        public static readonly Color ExamineButtonColorContext = Color.Transparent;
+        public static readonly Color ExamineButtonColorContextHover = Color.DarkSlateGray;
+        public static readonly Color ExamineButtonColorContextPressed = Color.LightSlateGray;
+        public static readonly Color ExamineButtonColorContextDisabled = Color.FromHex("#5A5A5A");
 
         //Used by the APC and SMES menus
         public const string StyleClassPowerStateNone = "PowerStateNone";
@@ -106,53 +120,33 @@ namespace Content.Client.Stylesheets
 
         public const string StyleClassItemStatus = "ItemStatus";
 
+        //Background
+        public const string StyleClassBackgroundBaseDark = "PanelBackgroundBaseDark";
+
+        //Buttons
+        public const string StyleClassCrossButtonRed = "CrossButtonRed";
+        public const string StyleClassButtonColorRed = "ButtonColorRed";
+        public const string StyleClassButtonColorGreen = "ButtonColorGreen";
+
         public override Stylesheet Stylesheet { get; }
 
         public StyleNano(IResourceCache resCache) : base(resCache)
         {
-            FontLib.AddFont("notosansdisplay",
-                new FontVariant
-                (
-                    FontStyle.Normal,
-                    new []
-                    {
-                        resCache.GetResource<FontResource>("/Fonts/NotoSansDisplay/NotoSansDisplay-Regular.ttf"),
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSansSymbols-Regular.ttf"),
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSansSymbols2-Regular.ttf")
-                    }
-                ),
-                new FontVariant
-                (
-                    FontStyle.Bold,
-                    new []
-                    {
-                        resCache.GetResource<FontResource>("/Fonts/NotoSansDisplay/NotoSansDisplay-Bold.ttf"),
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSansSymbols-Regular.ttf"),
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSansSymbols2-Regular.ttf")
-                    }
-                ),
-                new FontVariant
-                (
-                    FontStyle.Italic,
-                    new []
-                    {
-                        resCache.GetResource<FontResource>("/Fonts/NotoSansDisplay/NotoSansDisplay-Italic.ttf"),
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSansSymbols-Regular.ttf"),
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSansSymbols2-Regular.ttf")
-                    }
-                ),
-                new FontVariant
-                (
-                    FontStyle.Bold | FontStyle.Italic,
-                    new []
-                    {
-                        resCache.GetResource<FontResource>("/Fonts/NotoSansDisplay/NotoSansDisplay-BoldItalic.ttf"),
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSansSymbols-Bold.ttf"),
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSansSymbols2-Regular.ttf")
-                    }
-                )
-            );
-
+            var notoSans10 = resCache.NotoStack(size: 10);
+            var notoSansItalic10 = resCache.NotoStack(variation: "Italic", size: 10);
+            var notoSans12 = resCache.NotoStack(size: 12);
+            var notoSansItalic12 = resCache.NotoStack(variation: "Italic", size: 12);
+            var notoSansBold12 = resCache.NotoStack(variation: "Bold", size: 12);
+            var notoSansBoldItalic12 = resCache.NotoStack(variation: "BoldItalic", size: 12);
+            var notoSansBoldItalic14 = resCache.NotoStack(variation: "BoldItalic", size: 14);
+            var notoSansBoldItalic16 = resCache.NotoStack(variation: "BoldItalic", size: 16);
+            var notoSansDisplayBold14 = resCache.NotoStack(variation: "Bold", display: true, size: 14);
+            var notoSansDisplayBold16 = resCache.NotoStack(variation: "Bold", display: true, size: 16);
+            var notoSans15 = resCache.NotoStack(variation: "Regular", size: 15);
+            var notoSans16 = resCache.NotoStack(variation: "Regular", size: 16);
+            var notoSansBold16 = resCache.NotoStack(variation: "Bold", size: 16);
+            var notoSansBold18 = resCache.NotoStack(variation: "Bold", size: 18);
+            var notoSansBold20 = resCache.NotoStack(variation: "Bold", size: 20);
             var windowHeaderTex = resCache.GetTexture("/Textures/Interface/Nano/window_header.png");
             var windowHeader = new StyleBoxTexture
             {
@@ -380,6 +374,15 @@ namespace Content.Client.Stylesheets
             tooltipBox.SetPatchMargin(StyleBox.Margin.All, 2);
             tooltipBox.SetContentMarginOverride(StyleBox.Margin.Horizontal, 7);
 
+            // Whisper box
+            var whisperTexture = resCache.GetTexture("/Textures/Interface/Nano/whisper.png");
+            var whisperBox = new StyleBoxTexture
+            {
+                Texture = whisperTexture,
+            };
+            whisperBox.SetPatchMargin(StyleBox.Margin.All, 2);
+            whisperBox.SetContentMarginOverride(StyleBox.Margin.Horizontal, 7);
+
             // Placeholder
             var placeholderTexture = resCache.GetTexture("/Textures/Interface/Nano/placeholder.png");
             var placeholder = new StyleBoxTexture {Texture = placeholderTexture};
@@ -399,6 +402,13 @@ namespace Content.Client.Stylesheets
             var itemListItemBackgroundTransparent = new StyleBoxFlat {BackgroundColor = Color.Transparent};
             itemListItemBackgroundTransparent.SetContentMarginOverride(StyleBox.Margin.Vertical, 2);
             itemListItemBackgroundTransparent.SetContentMarginOverride(StyleBox.Margin.Horizontal, 4);
+
+            var squareTex = resCache.GetTexture("/Textures/Interface/Nano/square.png");
+            var listContainerButton = new StyleBoxTexture
+            {
+                Texture = squareTex,
+                ContentMarginLeftOverride = 10
+            };
 
             // NanoHeading
             var nanoHeadingTex = resCache.GetTexture("/Textures/Interface/Nano/nanoheading.svg.96dpi.png");
@@ -458,17 +468,9 @@ namespace Content.Client.Stylesheets
             var sliderFillGreen = new StyleBoxTexture(sliderFillBox) {Modulate = Color.LimeGreen};
             var sliderFillRed = new StyleBoxTexture(sliderFillBox) {Modulate = Color.Red};
             var sliderFillBlue = new StyleBoxTexture(sliderFillBox) {Modulate = Color.Blue};
+            var sliderFillWhite = new StyleBoxTexture(sliderFillBox) { Modulate = Color.White };
 
-            FontLib.AddFont("box",
-                    new FontVariant
-                    (
-                        (FontStyle) default,
-                        new []
-                        {
-                            resCache.GetResource<FontResource>("/Fonts/Boxfont-round/Boxfont Round.ttf")
-                        }
-                    )
-            );
+            var boxFont13 = resCache.GetFont("/Fonts/Boxfont-round/Boxfont Round.ttf", 13);
 
             var insetBack = new StyleBoxTexture
             {
@@ -477,15 +479,23 @@ namespace Content.Client.Stylesheets
             };
             insetBack.SetPatchMargin(StyleBox.Margin.All, 10);
 
+            var contextMenuExpansionTexture = resCache.GetTexture("/Textures/Interface/VerbIcons/group.svg.192dpi.png");
+            var verbMenuConfirmationTexture = resCache.GetTexture("/Textures/Interface/VerbIcons/group.svg.192dpi.png");
+
+            // south-facing arrow:
+            var directionIconArrowTex = resCache.GetTexture("/Textures/Interface/VerbIcons/drop.svg.192dpi.png");
+            var directionIconQuestionTex = resCache.GetTexture("/Textures/Interface/VerbIcons/information.svg.192dpi.png");
+            var directionIconHereTex = resCache.GetTexture("/Textures/Interface/VerbIcons/dot.svg.192dpi.png");
+
             Stylesheet = new Stylesheet(BaseRules.Concat(new[]
             {
                 // Window title.
                 new StyleRule(
-                    new SelectorElement(typeof(Label), new[] {SS14Window.StyleClassWindowTitle}, null, null),
+                    new SelectorElement(typeof(Label), new[] {DefaultWindow.StyleClassWindowTitle}, null, null),
                     new[]
                     {
                         new StyleProperty(Label.StylePropertyFontColor, NanoGold),
-                        new StyleProperty(Label.StylePropertyFont, new FontClass("notosansdisplay", FontStyle.Bold, (FontSize) 14)),
+                        new StyleProperty(Label.StylePropertyFont, notoSansDisplayBold14),
                     }),
                 // Alert (white) window title.
                 new StyleRule(
@@ -493,11 +503,11 @@ namespace Content.Client.Stylesheets
                     new[]
                     {
                         new StyleProperty(Label.StylePropertyFontColor, Color.White),
-                        new StyleProperty(Label.StylePropertyFont, new FontClass("notosansdisplay", FontStyle.Bold, (FontSize) 14)),
+                        new StyleProperty(Label.StylePropertyFont, notoSansDisplayBold14),
                     }),
                 // Window background.
                 new StyleRule(
-                    new SelectorElement(null, new[] {SS14Window.StyleClassWindowPanel}, null, null),
+                    new SelectorElement(null, new[] {DefaultWindow.StyleClassWindowPanel}, null, null),
                     new[]
                     {
                         new StyleProperty(PanelContainer.StylePropertyPanel, windowBackground),
@@ -537,7 +547,7 @@ namespace Content.Client.Stylesheets
                     }),
                 // Window header.
                 new StyleRule(
-                    new SelectorElement(typeof(PanelContainer), new[] {SS14Window.StyleClassWindowHeader}, null, null),
+                    new SelectorElement(typeof(PanelContainer), new[] {DefaultWindow.StyleClassWindowHeader}, null, null),
                     new[]
                     {
                         new StyleProperty(PanelContainer.StylePropertyPanel, windowHeader),
@@ -642,74 +652,112 @@ namespace Content.Client.Stylesheets
                     .Prop(Control.StylePropertyModulateSelf, ButtonColorContextDisabled),
 
                 // Context Menu Labels
-                Element<RichTextLabel>().Class(VerbMenuElement.StyleClassVerbInteractionText)
-                    .Prop(Label.StylePropertyFont, new FontClass("notosans", FontStyle.Bold | FontStyle.Italic, (FontSize) 12)),
+                Element<RichTextLabel>().Class(InteractionVerb.DefaultTextStyleClass)
+                    .Prop(Label.StylePropertyFont, notoSansBoldItalic12),
 
-                Element<RichTextLabel>().Class(VerbMenuElement.StyleClassVerbActivationText)
-                    .Prop(Label.StylePropertyFont, new FontClass("notosans", FontStyle.Bold, (FontSize) 12)),
+                Element<RichTextLabel>().Class(ActivationVerb.DefaultTextStyleClass)
+                    .Prop(Label.StylePropertyFont, notoSansBold12),
 
-                Element<RichTextLabel>().Class(VerbMenuElement.StyleClassVerbAlternativeText)
-                    .Prop(Label.StylePropertyFont, new FontClass("notosans", FontStyle.Italic, (FontSize) 12)),
+                Element<RichTextLabel>().Class(AlternativeVerb.DefaultTextStyleClass)
+                    .Prop(Label.StylePropertyFont, notoSansItalic12),
 
-                Element<RichTextLabel>().Class(VerbMenuElement.StyleClassVerbOtherText)
-                    .Prop(Label.StylePropertyFont, new FontClass("notosans", (FontStyle) default, (FontSize) 12)),
+                Element<RichTextLabel>().Class(Verb.DefaultTextStyleClass)
+                    .Prop(Label.StylePropertyFont, notoSans12),
+
+                Element<TextureRect>().Class(ContextMenuElement.StyleClassContextMenuExpansionTexture)
+                    .Prop(TextureRect.StylePropertyTexture, contextMenuExpansionTexture),
+
+                Element<TextureRect>().Class(VerbMenuElement.StyleClassVerbMenuConfirmationTexture)
+                    .Prop(TextureRect.StylePropertyTexture, verbMenuConfirmationTexture),
+
+                // Context menu confirm buttons
+                Element<ContextMenuElement>().Class(ConfirmationMenuElement.StyleClassConfirmationContextMenuButton)
+                    .Prop(ContainerButton.StylePropertyStyleBox, buttonContext),
+
+                Element<ContextMenuElement>().Class(ConfirmationMenuElement.StyleClassConfirmationContextMenuButton)
+                    .Pseudo(ContainerButton.StylePseudoClassNormal)
+                    .Prop(Control.StylePropertyModulateSelf, ButtonColorCautionDefault),
+
+                Element<ContextMenuElement>().Class(ConfirmationMenuElement.StyleClassConfirmationContextMenuButton)
+                    .Pseudo(ContainerButton.StylePseudoClassHover)
+                    .Prop(Control.StylePropertyModulateSelf, ButtonColorCautionHovered),
+
+                Element<ContextMenuElement>().Class(ConfirmationMenuElement.StyleClassConfirmationContextMenuButton)
+                    .Pseudo(ContainerButton.StylePseudoClassPressed)
+                    .Prop(Control.StylePropertyModulateSelf, ButtonColorCautionPressed),
+
+                Element<ContextMenuElement>().Class(ConfirmationMenuElement.StyleClassConfirmationContextMenuButton)
+                    .Pseudo(ContainerButton.StylePseudoClassDisabled)
+                    .Prop(Control.StylePropertyModulateSelf, ButtonColorCautionDisabled),
+
+                // Examine buttons
+                Element<ExamineButton>().Class(ExamineButton.StyleClassExamineButton)
+                    .Prop(ContainerButton.StylePropertyStyleBox, buttonContext),
+
+                Element<ExamineButton>().Class(ExamineButton.StyleClassExamineButton)
+                    .Pseudo(ContainerButton.StylePseudoClassNormal)
+                    .Prop(Control.StylePropertyModulateSelf, ExamineButtonColorContext),
+
+                Element<ExamineButton>().Class(ExamineButton.StyleClassExamineButton)
+                    .Pseudo(ContainerButton.StylePseudoClassHover)
+                    .Prop(Control.StylePropertyModulateSelf, ExamineButtonColorContextHover),
+
+                Element<ExamineButton>().Class(ExamineButton.StyleClassExamineButton)
+                    .Pseudo(ContainerButton.StylePseudoClassPressed)
+                    .Prop(Control.StylePropertyModulateSelf, ExamineButtonColorContextPressed),
+
+                Element<ExamineButton>().Class(ExamineButton.StyleClassExamineButton)
+                    .Pseudo(ContainerButton.StylePseudoClassDisabled)
+                    .Prop(Control.StylePropertyModulateSelf, ExamineButtonColorContextDisabled),
+
+                // Direction / arrow icon
+                Element<DirectionIcon>().Class(DirectionIcon.StyleClassDirectionIconArrow)
+                    .Prop(TextureRect.StylePropertyTexture, directionIconArrowTex),
+
+                Element<DirectionIcon>().Class(DirectionIcon.StyleClassDirectionIconUnknown)
+                    .Prop(TextureRect.StylePropertyTexture, directionIconQuestionTex),
+
+                Element<DirectionIcon>().Class(DirectionIcon.StyleClassDirectionIconHere)
+                    .Prop(TextureRect.StylePropertyTexture, directionIconHereTex),
 
                 // Thin buttons (No padding nor vertical margin)
-                Element<EntityContainerButton>().Class(StyleClassStorageButton)
+                Element<ContainerButton>().Class(StyleClassStorageButton)
                     .Prop(ContainerButton.StylePropertyStyleBox, buttonStorage),
 
-                Element<EntityContainerButton>().Class(StyleClassStorageButton)
+                Element<ContainerButton>().Class(StyleClassStorageButton)
                     .Pseudo(ContainerButton.StylePseudoClassNormal)
                     .Prop(Control.StylePropertyModulateSelf, ButtonColorDefault),
 
-                Element<EntityContainerButton>().Class(StyleClassStorageButton)
+                Element<ContainerButton>().Class(StyleClassStorageButton)
                     .Pseudo(ContainerButton.StylePseudoClassHover)
                     .Prop(Control.StylePropertyModulateSelf, ButtonColorHovered),
 
-                Element<EntityContainerButton>().Class(StyleClassStorageButton)
+                Element<ContainerButton>().Class(StyleClassStorageButton)
                     .Pseudo(ContainerButton.StylePseudoClassPressed)
                     .Prop(Control.StylePropertyModulateSelf, ButtonColorPressed),
 
-                Element<EntityContainerButton>().Class(StyleClassStorageButton)
+                Element<ContainerButton>().Class(StyleClassStorageButton)
                     .Pseudo(ContainerButton.StylePseudoClassDisabled)
                     .Prop(Control.StylePropertyModulateSelf, ButtonColorDisabled),
+// ListContainer
+                Element<ContainerButton>().Class(ListContainer.StyleClassListContainerButton)
+                    .Prop(ContainerButton.StylePropertyStyleBox, listContainerButton),
 
-                // action slot hotbar buttons
-                new StyleRule(new SelectorElement(typeof(ActionSlot), null, null, new[] {ContainerButton.StylePseudoClassNormal}), new[]
-                {
-                    new StyleProperty(PanelContainer.StylePropertyPanel, buttonRect),
-                }),
-                new StyleRule(new SelectorElement(typeof(ActionSlot), null, null, new[] {ContainerButton.StylePseudoClassHover}), new[]
-                {
-                    new StyleProperty(PanelContainer.StylePropertyPanel, buttonRectHover),
-                }),
-                new StyleRule(new SelectorElement(typeof(ActionSlot), null, null, new[] {ContainerButton.StylePseudoClassPressed}), new[]
-                {
-                    new StyleProperty(PanelContainer.StylePropertyPanel, buttonRectPressed),
-                }),
-                new StyleRule(new SelectorElement(typeof(ActionSlot), null, null, new[] {ContainerButton.StylePseudoClassDisabled}), new[]
-                {
-                    new StyleProperty(PanelContainer.StylePropertyPanel, buttonRectDisabled),
-                }),
+                Element<ContainerButton>().Class(ListContainer.StyleClassListContainerButton)
+                    .Pseudo(ContainerButton.StylePseudoClassNormal)
+                    .Prop(Control.StylePropertyModulateSelf, new Color(55, 55, 68)),
 
-                // action menu item buttons
-                new StyleRule(new SelectorElement(typeof(ActionMenuItem), null, null, new[] {ContainerButton.StylePseudoClassNormal}), new[]
-                {
-                    new StyleProperty(ContainerButton.StylePropertyStyleBox, buttonRectActionMenuItem),
-                }),
-                // we don't actually disable the action menu items, only change their style based on the underlying action being revoked
-                new StyleRule(new SelectorElement(typeof(ActionMenuItem), new [] {StyleClassActionMenuItemRevoked}, null, new[] {ContainerButton.StylePseudoClassNormal}), new[]
-                {
-                    new StyleProperty(ContainerButton.StylePropertyStyleBox, buttonRectActionMenuItemRevoked),
-                }),
-                new StyleRule(new SelectorElement(typeof(ActionMenuItem), null, null, new[] {ContainerButton.StylePseudoClassHover}), new[]
-                {
-                    new StyleProperty(ContainerButton.StylePropertyStyleBox, buttonRectActionMenuItemHover),
-                }),
-                new StyleRule(new SelectorElement(typeof(ActionMenuItem), null, null, new[] {ContainerButton.StylePseudoClassPressed}), new[]
-                {
-                    new StyleProperty(ContainerButton.StylePropertyStyleBox, buttonRectActionMenuItemPressed),
-                }),
+                Element<ContainerButton>().Class(ListContainer.StyleClassListContainerButton)
+                    .Pseudo(ContainerButton.StylePseudoClassHover)
+                    .Prop(Control.StylePropertyModulateSelf, new Color(75, 75, 86)),
+
+                Element<ContainerButton>().Class(ListContainer.StyleClassListContainerButton)
+                    .Pseudo(ContainerButton.StylePseudoClassPressed)
+                    .Prop(Control.StylePropertyModulateSelf, new Color(75, 75, 86)),
+
+                Element<ContainerButton>().Class(ListContainer.StyleClassListContainerButton)
+                    .Pseudo(ContainerButton.StylePseudoClassDisabled)
+                    .Prop(Control.StylePropertyModulateSelf, new Color(10, 10, 12)),
 
                 // Main menu: Make those buttons bigger.
                 new StyleRule(new SelectorChild(
@@ -717,7 +765,7 @@ namespace Content.Client.Stylesheets
                     new SelectorElement(typeof(Label), null, null, null)),
                     new[]
                     {
-                        new StyleProperty("font", new FontClass("notosans", FontStyle.Bold, (FontSize) 16)),
+                        new StyleProperty("font", notoSansBold16),
                     }),
 
                 // Main menu: also make those buttons slightly more separated.
@@ -747,6 +795,10 @@ namespace Content.Client.Stylesheets
                     {
                         new StyleProperty("font-color", Color.Gray),
                     }),
+
+                Element<TextEdit>().Pseudo(TextEdit.StylePseudoClassPlaceholder)
+                    .Prop("font-color", Color.Gray),
+
                 // Chat lineedit - we don't actually draw a stylebox around the lineedit itself, we put it around the
                 // input + other buttons, so we must clear the default stylebox
                 new StyleRule(new SelectorElement(typeof(LineEdit), new[] {StyleClassChatLineEdit}, null, null),
@@ -818,57 +870,62 @@ namespace Content.Client.Stylesheets
                     new StyleProperty(PanelContainer.StylePropertyPanel, tooltipBox)
                 }),
 
+                new StyleRule(new SelectorElement(typeof(PanelContainer), new[] {"speechBox", "whisperBox"}, null, null), new[]
+                {
+                    new StyleProperty(PanelContainer.StylePropertyPanel, whisperBox)
+                }),
+
                 new StyleRule(new SelectorChild(
                     new SelectorElement(typeof(PanelContainer), new[] {"speechBox", "emoteBox"}, null, null),
                     new SelectorElement(typeof(RichTextLabel), null, null, null)),
                     new[]
                 {
-                    new StyleProperty("font", new FontClass("notosans", FontStyle.Italic, (FontSize) 12)),
+                    new StyleProperty("font", notoSansItalic12),
                 }),
 
                 // alert tooltip
                 new StyleRule(new SelectorElement(typeof(RichTextLabel), new[] {StyleClassTooltipAlertTitle}, null, null), new[]
                 {
-                    new StyleProperty("font", new FontClass("notosans", FontStyle.Bold, (FontSize) 18))
+                    new StyleProperty("font", notoSansBold18)
                 }),
                 new StyleRule(new SelectorElement(typeof(RichTextLabel), new[] {StyleClassTooltipAlertDescription}, null, null), new[]
                 {
-                    new StyleProperty("font", new FontClass("notosans", (FontStyle) default, (FontSize) 16))
+                    new StyleProperty("font", notoSans16)
                 }),
                 new StyleRule(new SelectorElement(typeof(RichTextLabel), new[] {StyleClassTooltipAlertCooldown}, null, null), new[]
                 {
-                    new StyleProperty("font", new FontClass("notosans", (FontStyle) default, (FontSize) 16))
+                    new StyleProperty("font", notoSans16)
                 }),
 
                 // action tooltip
                 new StyleRule(new SelectorElement(typeof(RichTextLabel), new[] {StyleClassTooltipActionTitle}, null, null), new[]
                 {
-                    new StyleProperty("font", new FontClass("notosans", FontStyle.Bold, (FontSize) 16))
+                    new StyleProperty("font", notoSansBold16)
                 }),
                 new StyleRule(new SelectorElement(typeof(RichTextLabel), new[] {StyleClassTooltipActionDescription}, null, null), new[]
                 {
-                    new StyleProperty("font", new FontClass("notosans", (FontStyle) default, (FontSize) 15))
+                    new StyleProperty("font", notoSans15)
                 }),
                 new StyleRule(new SelectorElement(typeof(RichTextLabel), new[] {StyleClassTooltipActionCooldown}, null, null), new[]
                 {
-                    new StyleProperty("font", new FontClass("notosans", (FontStyle) default, (FontSize) 15))
+                    new StyleProperty("font", notoSans15)
                 }),
                 new StyleRule(new SelectorElement(typeof(RichTextLabel), new[] {StyleClassTooltipActionRequirements}, null, null), new[]
                 {
-                    new StyleProperty("font", new FontClass("notosans", (FontStyle) default, (FontSize) 15))
+                    new StyleProperty("font", notoSans15)
                 }),
 
                 // small number for the entity counter in the entity menu
                 new StyleRule(new SelectorElement(typeof(Label), new[] {EntityMenuElement.StyleClassEntityMenuCountText}, null, null), new[]
                 {
-                    new StyleProperty("font", new FontClass("notosans", (FontStyle) default, (FontSize) 10)),
+                    new StyleProperty("font", notoSans10),
                     new StyleProperty(Label.StylePropertyAlignMode, Label.AlignMode.Right),
                 }),
 
                 // hotbar slot
                 new StyleRule(new SelectorElement(typeof(RichTextLabel), new[] {StyleClassHotbarSlotNumber}, null, null), new[]
                 {
-                    new StyleProperty("font", new FontClass("notosansdisplay", FontStyle.Bold, (FontSize) 16))
+                    new StyleProperty("font", notoSansDisplayBold16)
                 }),
 
                 // Entity tooltip
@@ -925,14 +982,14 @@ namespace Content.Client.Stylesheets
                 new StyleRule(
                     new SelectorElement(typeof(Label), new[] {Placeholder.StyleClassPlaceholderText}, null, null), new[]
                     {
-                        new StyleProperty(Label.StylePropertyFont, new FontClass("notosans", (FontStyle) default, (FontSize) 16)),
+                        new StyleProperty(Label.StylePropertyFont, notoSans16),
                         new StyleProperty(Label.StylePropertyFontColor, new Color(103, 103, 103, 128)),
                     }),
 
                 // Big Label
                 new StyleRule(new SelectorElement(typeof(Label), new[] {StyleClassLabelHeading}, null, null), new[]
                 {
-                    new StyleProperty(Label.StylePropertyFont, new FontClass("notosans", FontStyle.Bold, (FontSize) 16)),
+                    new StyleProperty(Label.StylePropertyFont, notoSansBold16),
                     new StyleProperty(Label.StylePropertyFontColor, NanoGold),
                 }),
 
@@ -940,28 +997,28 @@ namespace Content.Client.Stylesheets
                 new StyleRule(new SelectorElement(typeof(Label), new[] {StyleClassLabelHeadingBigger}, null, null),
                     new[]
                     {
-                        new StyleProperty(Label.StylePropertyFont, new FontClass("notosans", FontStyle.Bold, (FontSize) 20)),
+                        new StyleProperty(Label.StylePropertyFont, notoSansBold20),
                         new StyleProperty(Label.StylePropertyFontColor, NanoGold),
                     }),
 
                 // Small Label
                 new StyleRule(new SelectorElement(typeof(Label), new[] {StyleClassLabelSubText}, null, null), new[]
                 {
-                    new StyleProperty(Label.StylePropertyFont, new FontClass("notosans", (FontStyle) default, (FontSize) 10)),
+                    new StyleProperty(Label.StylePropertyFont, notoSans10),
                     new StyleProperty(Label.StylePropertyFontColor, Color.DarkGray),
                 }),
 
                 // Label Key
                 new StyleRule(new SelectorElement(typeof(Label), new[] {StyleClassLabelKeyText}, null, null), new[]
                 {
-                    new StyleProperty(Label.StylePropertyFont, new FontClass("notosans", FontStyle.Bold, (FontSize) 12)),
+                    new StyleProperty(Label.StylePropertyFont, notoSansBold12),
                     new StyleProperty(Label.StylePropertyFontColor, NanoGold)
                 }),
 
                 new StyleRule(new SelectorElement(typeof(Label), new[] {StyleClassLabelSecondaryColor}, null, null),
                     new[]
                     {
-                        new StyleProperty(Label.StylePropertyFont, new FontClass("notosans", (FontStyle) default, (FontSize) 12)),
+                        new StyleProperty(Label.StylePropertyFont, notoSans12),
                         new StyleProperty(Label.StylePropertyFontColor, Color.DarkGray),
                     }),
 
@@ -971,15 +1028,50 @@ namespace Content.Client.Stylesheets
                     new SelectorElement(typeof(Label), null, null, null)),
                     new[]
                     {
-                        new StyleProperty("font", new FontClass("notosans", (FontStyle) default, (FontSize) 16))
+                        new StyleProperty("font", notoSans16)
                     }),
 
                 // Popup messages
-                new StyleRule(new SelectorElement(typeof(Label), new[] {StyleClassPopupMessage}, null, null),
+                new StyleRule(new SelectorElement(typeof(Label), new[] {StyleClassPopupMessageSmall}, null, null),
                     new[]
                     {
-                        new StyleProperty("font", new FontClass("notosans", FontStyle.Italic, (FontSize) 10)),
+                        new StyleProperty("font", notoSansItalic10),
+                        new StyleProperty("font-color", Color.White),
+                    }),
+
+                new StyleRule(new SelectorElement(typeof(Label), new[] {StyleClassPopupMessageSmallCaution}, null, null),
+                    new[]
+                    {
+                        new StyleProperty("font", notoSansItalic10),
+                        new StyleProperty("font-color", Color.Red),
+                    }),
+
+                new StyleRule(new SelectorElement(typeof(Label), new[] {StyleClassPopupMessageMedium}, null, null),
+                    new[]
+                    {
+                        new StyleProperty("font", notoSansItalic12),
                         new StyleProperty("font-color", Color.LightGray),
+                    }),
+
+                new StyleRule(new SelectorElement(typeof(Label), new[] {StyleClassPopupMessageMediumCaution}, null, null),
+                    new[]
+                    {
+                        new StyleProperty("font", notoSansItalic12),
+                        new StyleProperty("font-color", Color.Red),
+                    }),
+
+                new StyleRule(new SelectorElement(typeof(Label), new[] {StyleClassPopupMessageLarge}, null, null),
+                    new[]
+                    {
+                        new StyleProperty("font", notoSansBoldItalic14),
+                        new StyleProperty("font-color", Color.LightGray),
+                    }),
+
+                new StyleRule(new SelectorElement(typeof(Label), new[] {StyleClassPopupMessageLargeCaution}, null, null),
+                    new[]
+                    {
+                        new StyleProperty("font", notoSansBoldItalic14),
+                        new StyleProperty("font-color", Color.Red),
                     }),
 
                 //APC and SMES power state label colors
@@ -1003,73 +1095,73 @@ namespace Content.Client.Stylesheets
                 // which is NOT the case for the default BaseButton styles (OpenLeft/OpenRight adds extra padding on one of the sides
                 // which makes the TopButton icons appear off-center, which we don't want).
                 new StyleRule(
-                    new SelectorElement(typeof(GameHud.TopButton), new[] {ButtonSquare}, null, null),
+                    new SelectorElement(typeof(MenuButton), new[] {ButtonSquare}, null, null),
                     new[]
                     {
                         new StyleProperty(Button.StylePropertyStyleBox, topButtonSquare),
                     }),
 
                 new StyleRule(
-                    new SelectorElement(typeof(GameHud.TopButton), new[] {ButtonOpenLeft}, null, null),
+                    new SelectorElement(typeof(MenuButton), new[] {ButtonOpenLeft}, null, null),
                     new[]
                     {
                         new StyleProperty(Button.StylePropertyStyleBox, topButtonOpenLeft),
                     }),
 
                 new StyleRule(
-                    new SelectorElement(typeof(GameHud.TopButton), new[] {ButtonOpenRight}, null, null),
+                    new SelectorElement(typeof(MenuButton), new[] {ButtonOpenRight}, null, null),
                     new[]
                     {
                         new StyleProperty(Button.StylePropertyStyleBox, topButtonOpenRight),
                     }),
 
                 new StyleRule(
-                    new SelectorElement(typeof(GameHud.TopButton), null, null, new[] {Button.StylePseudoClassNormal}),
+                    new SelectorElement(typeof(MenuButton), null, null, new[] {Button.StylePseudoClassNormal}),
                     new[]
                     {
                         new StyleProperty(Button.StylePropertyModulateSelf, ButtonColorDefault),
                     }),
 
                 new StyleRule(
-                    new SelectorElement(typeof(GameHud.TopButton), new[] {GameHud.TopButton.StyleClassRedTopButton}, null, new[] {Button.StylePseudoClassNormal}),
+                    new SelectorElement(typeof(MenuButton), new[] {MenuButton.StyleClassRedTopButton}, null, new[] {Button.StylePseudoClassNormal}),
                     new[]
                     {
                         new StyleProperty(Button.StylePropertyModulateSelf, ButtonColorDefaultRed),
                     }),
 
                 new StyleRule(
-                    new SelectorElement(typeof(GameHud.TopButton), null, null, new[] {Button.StylePseudoClassNormal}),
+                    new SelectorElement(typeof(MenuButton), null, null, new[] {Button.StylePseudoClassNormal}),
                     new[]
                     {
                         new StyleProperty(Button.StylePropertyModulateSelf, ButtonColorDefault),
                     }),
 
                 new StyleRule(
-                    new SelectorElement(typeof(GameHud.TopButton), null, null, new[] {Button.StylePseudoClassPressed}),
+                    new SelectorElement(typeof(MenuButton), null, null, new[] {Button.StylePseudoClassPressed}),
                     new[]
                     {
                         new StyleProperty(Button.StylePropertyModulateSelf, ButtonColorPressed),
                     }),
 
                 new StyleRule(
-                    new SelectorElement(typeof(GameHud.TopButton), null, null, new[] {Button.StylePseudoClassHover}),
+                    new SelectorElement(typeof(MenuButton), null, null, new[] {Button.StylePseudoClassHover}),
                     new[]
                     {
                         new StyleProperty(Button.StylePropertyModulateSelf, ButtonColorHovered),
                     }),
 
                 new StyleRule(
-                    new SelectorElement(typeof(GameHud.TopButton), new[] {GameHud.TopButton.StyleClassRedTopButton}, null, new[] {Button.StylePseudoClassHover}),
+                    new SelectorElement(typeof(MenuButton), new[] {MenuButton.StyleClassRedTopButton}, null, new[] {Button.StylePseudoClassHover}),
                     new[]
                     {
                         new StyleProperty(Button.StylePropertyModulateSelf, ButtonColorHoveredRed),
                     }),
 
                 new StyleRule(
-                    new SelectorElement(typeof(Label), new[] {GameHud.TopButton.StyleClassLabelTopButton}, null, null),
+                    new SelectorElement(typeof(Label), new[] {MenuButton.StyleClassLabelTopButton}, null, null),
                     new[]
                     {
-                        new StyleProperty(Label.StylePropertyFont, new FontClass("notosansdisplay", FontStyle.Bold, (FontSize) 14)),
+                        new StyleProperty(Label.StylePropertyFont, notoSansDisplayBold14),
                     }),
 
                 // Targeting doll
@@ -1119,13 +1211,13 @@ namespace Content.Client.Stylesheets
                     SelectorElement.Class(StyleClassLabelBig),
                     new[]
                     {
-                        new StyleProperty("font", new FontClass("notosans", (FontStyle) default, (FontSize) 16)),
+                        new StyleProperty("font", notoSans16),
                     }),
 
                 // StyleClassItemStatus
                 new StyleRule(SelectorElement.Class(StyleClassItemStatus), new[]
                 {
-                    new StyleProperty("font", new FontClass("notosans", (FontStyle) default, (FontSize) 10)),
+                    new StyleProperty("font", notoSans10),
                 }),
 
                 // Slider
@@ -1135,6 +1227,12 @@ namespace Content.Client.Stylesheets
                     new StyleProperty(Slider.StylePropertyForeground, sliderForeBox),
                     new StyleProperty(Slider.StylePropertyGrabber, sliderGrabBox),
                     new StyleProperty(Slider.StylePropertyFill, sliderFillBox),
+                }),
+
+                new StyleRule(SelectorElement.Type(typeof(ColorableSlider)), new []
+                {
+                    new StyleProperty(ColorableSlider.StylePropertyFillWhite, sliderFillWhite),
+                    new StyleProperty(ColorableSlider.StylePropertyBackgroundWhite, sliderFillWhite),
                 }),
 
                 new StyleRule(new SelectorElement(typeof(Slider), new []{StyleClassSliderRed}, null, null), new []
@@ -1150,6 +1248,11 @@ namespace Content.Client.Stylesheets
                 new StyleRule(new SelectorElement(typeof(Slider), new []{StyleClassSliderBlue}, null, null), new []
                 {
                     new StyleProperty(Slider.StylePropertyFill, sliderFillBlue),
+                }),
+
+                new StyleRule(new SelectorElement(typeof(Slider), new []{StyleClassSliderWhite}, null, null), new []
+                {
+                    new StyleProperty(Slider.StylePropertyFill, sliderFillWhite),
                 }),
 
                 // chat channel option selector
@@ -1230,15 +1333,54 @@ namespace Content.Client.Stylesheets
                     }),
 
                 Element<Label>().Class("FancyWindowTitle")
-                    .Prop("font", new FontClass("boxfont", (FontStyle) default, (FontSize) 13))
+                    .Prop("font", boxFont13)
                     .Prop("font-color", NanoGold),
 
                 Element<PanelContainer>().Class("WindowHeadingBackground")
                     .Prop("panel", new StyleBoxTexture(BaseButtonOpenLeft) { Padding = default })
                     .Prop(Control.StylePropertyModulateSelf, Color.FromHex("#1F1F23")),
 
-                Element<PanelContainer>().Class("Inset")
-                    .Prop("panel", insetBack),
+                Element<PanelContainer>().Class("WindowHeadingBackgroundLight")
+                    .Prop("panel", new StyleBoxTexture(BaseButtonOpenLeft) { Padding = default }),
+
+                //The lengths you have to go through to change a background color smh
+                Element<PanelContainer>().Class("PanelBackgroundBaseDark")
+                    .Prop("panel", new StyleBoxTexture(BaseButtonOpenBoth) { Padding = default })
+                    .Prop(Control.StylePropertyModulateSelf, Color.FromHex("#1F1F23")),
+
+                // X Texture button ---
+                Element<TextureButton>().Class("CrossButtonRed")
+                    .Prop(TextureButton.StylePropertyTexture, resCache.GetTexture("/Textures/Interface/Nano/cross.svg.png"))
+                    .Prop(Control.StylePropertyModulateSelf, DangerousRedFore),
+
+                Element<TextureButton>().Class("CrossButtonRed").Pseudo(TextureButton.StylePseudoClassHover)
+                    .Prop(Control.StylePropertyModulateSelf, Color.FromHex("#7F3636")),
+
+                Element<TextureButton>().Class("CrossButtonRed").Pseudo(TextureButton.StylePseudoClassHover)
+                    .Prop(Control.StylePropertyModulateSelf, Color.FromHex("#753131")),
+                // ---
+
+                // Red Button ---
+                Element<Button>().Class("ButtonColorRed")
+                    .Prop(Control.StylePropertyModulateSelf, ButtonColorDefaultRed),
+
+                Element<Button>().Class("ButtonColorRed").Pseudo(ContainerButton.StylePseudoClassNormal)
+                    .Prop(Control.StylePropertyModulateSelf, ButtonColorDefaultRed),
+
+                Element<Button>().Class("ButtonColorRed").Pseudo(ContainerButton.StylePseudoClassHover)
+                    .Prop(Control.StylePropertyModulateSelf, ButtonColorHoveredRed),
+                // ---
+
+                // Green Button ---
+                Element<Button>().Class("ButtonColorGreen")
+                    .Prop(Control.StylePropertyModulateSelf, ButtonColorGoodDefault),
+
+                Element<Button>().Class("ButtonColorGreen").Pseudo(ContainerButton.StylePseudoClassNormal)
+                    .Prop(Control.StylePropertyModulateSelf, ButtonColorGoodDefault),
+
+                Element<Button>().Class("ButtonColorGreen").Pseudo(ContainerButton.StylePseudoClassHover)
+                    .Prop(Control.StylePropertyModulateSelf, ButtonColorGoodHovered),
+                // ---
 
                 Element<Label>().Class("StatusFieldTitle")
                     .Prop("font-color", NanoGold),
@@ -1254,6 +1396,60 @@ namespace Content.Client.Stylesheets
 
                 Element<Label>().Class("Disabled")
                     .Prop("font-color", DisabledFore),
+
+                //PDA - Backgrounds
+                Element<PanelContainer>().Class("PDAContentBackground")
+                    .Prop(PanelContainer.StylePropertyPanel, BaseButtonOpenBoth)
+                    .Prop(Control.StylePropertyModulateSelf, Color.FromHex("#25252a")),
+
+                Element<PanelContainer>().Class("PDABackground")
+                    .Prop(PanelContainer.StylePropertyPanel, BaseButtonOpenBoth)
+                    .Prop(Control.StylePropertyModulateSelf, Color.FromHex("#000000")),
+
+                Element<PanelContainer>().Class("PDABackgroundRect")
+                    .Prop(PanelContainer.StylePropertyPanel, BaseAngleRect)
+                    .Prop(Control.StylePropertyModulateSelf, Color.FromHex("#717059")),
+
+                Element<PanelContainer>().Class("PDABorderRect")
+                    .Prop(PanelContainer.StylePropertyPanel, AngleBorderRect),
+
+                Element<PanelContainer>().Class("BackgroundDark")
+                    .Prop(PanelContainer.StylePropertyPanel, new StyleBoxFlat(Color.FromHex("#25252A"))),
+
+                //PDA - Buttons
+                Element<PDASettingsButton>().Pseudo(ContainerButton.StylePseudoClassNormal)
+                    .Prop(PDASettingsButton.StylePropertyBgColor, Color.FromHex(PDASettingsButton.NormalBgColor))
+                    .Prop(PDASettingsButton.StylePropertyFgColor, Color.FromHex(PDASettingsButton.EnabledFgColor)),
+
+                Element<PDASettingsButton>().Pseudo(ContainerButton.StylePseudoClassHover)
+                    .Prop(PDASettingsButton.StylePropertyBgColor, Color.FromHex(PDASettingsButton.HoverColor))
+                    .Prop(PDASettingsButton.StylePropertyFgColor, Color.FromHex(PDASettingsButton.EnabledFgColor)),
+
+                Element<PDASettingsButton>().Pseudo(ContainerButton.StylePseudoClassPressed)
+                    .Prop(PDASettingsButton.StylePropertyBgColor, Color.FromHex(PDASettingsButton.PressedColor))
+                    .Prop(PDASettingsButton.StylePropertyFgColor, Color.FromHex(PDASettingsButton.EnabledFgColor)),
+
+                Element<PDASettingsButton>().Pseudo(ContainerButton.StylePseudoClassDisabled)
+                    .Prop(PDASettingsButton.StylePropertyBgColor, Color.FromHex(PDASettingsButton.NormalBgColor))
+                    .Prop(PDASettingsButton.StylePropertyFgColor, Color.FromHex(PDASettingsButton.DisabledFgColor)),
+
+                Element<PDAProgramItem>().Pseudo(ContainerButton.StylePseudoClassNormal)
+                    .Prop(PDAProgramItem.StylePropertyBgColor, Color.FromHex(PDAProgramItem.NormalBgColor)),
+
+                Element<PDAProgramItem>().Pseudo(ContainerButton.StylePseudoClassHover)
+                    .Prop(PDAProgramItem.StylePropertyBgColor, Color.FromHex(PDAProgramItem.HoverColor)),
+
+                Element<PDAProgramItem>().Pseudo(ContainerButton.StylePseudoClassPressed)
+                    .Prop(PDAProgramItem.StylePropertyBgColor, Color.FromHex(PDAProgramItem.HoverColor)),
+
+                //PDA - Text
+                Element<Label>().Class("PDAContentFooterText")
+                    .Prop(Label.StylePropertyFont, notoSans10)
+                    .Prop(Label.StylePropertyFontColor, Color.FromHex("#757575")),
+
+                Element<Label>().Class("PDAWindowFooterText")
+                    .Prop(Label.StylePropertyFont, notoSans10)
+                    .Prop(Label.StylePropertyFontColor, Color.FromHex("#333d3b")),
 
             }).ToList());
         }

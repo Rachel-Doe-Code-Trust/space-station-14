@@ -8,11 +8,12 @@ using Robust.Shared.Serialization.Manager.Attributes;
 namespace Content.Client.Nutrition.Visualizers
 {
     [UsedImplicitly]
-    public class CreamPiedVisualizer : AppearanceVisualizer
+    public sealed class CreamPiedVisualizer : AppearanceVisualizer
     {
         [DataField("state")]
         private string? _state;
 
+        [Obsolete("Subscribe to your component being initialised instead.")]
         public override void InitializeEntity(EntityUid entity)
         {
             base.InitializeEntity(entity);
@@ -24,6 +25,7 @@ namespace Content.Client.Nutrition.Visualizers
             sprite.LayerSetVisible(CreamPiedVisualLayers.Pie, false);
         }
 
+        [Obsolete("Subscribe to AppearanceChangeEvent instead.")]
         public override void OnChangeData(AppearanceComponent component)
         {
             base.OnChangeData(component);

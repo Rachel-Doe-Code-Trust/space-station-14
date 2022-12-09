@@ -1,35 +1,25 @@
-using System;
 using System.Threading;
 using Content.Server.Chemistry.EntitySystems;
 using Content.Server.Nutrition.EntitySystems;
 using Content.Shared.FixedPoint;
-using Content.Shared.Sound;
-using Robust.Shared.Analyzers;
-using Robust.Shared.GameObjects;
+using Robust.Shared.Audio;
 using Robust.Shared.Prototypes;
-using Robust.Shared.Serialization.Manager.Attributes;
 using Robust.Shared.Serialization.TypeSerializers.Implementations.Custom.Prototype;
-using Robust.Shared.ViewVariables;
 
 namespace Content.Server.Nutrition.Components
 {
-    [RegisterComponent, Friend(typeof(FoodSystem))]
-    public class FoodComponent : Component
+    [RegisterComponent, Access(typeof(FoodSystem))]
+    public sealed class FoodComponent : Component
     {
-        public override string Name => "Food";
-
         [DataField("solution")]
         public string SolutionName { get; set; } = "food";
 
-        [ViewVariables]
         [DataField("useSound")]
         public SoundSpecifier UseSound { get; set; } = new SoundPathSpecifier("/Audio/Items/eatfood.ogg");
 
-        [ViewVariables]
         [DataField("trash", customTypeSerializer: typeof(PrototypeIdSerializer<EntityPrototype>))]
         public string? TrashPrototype { get; set; }
 
-        [ViewVariables]
         [DataField("transferAmount")]
         public FixedPoint2? TransferAmount { get; set; } = FixedPoint2.New(5);
 
@@ -45,8 +35,17 @@ namespace Content.Server.Nutrition.Components
         [DataField("utensilRequired")]
         public bool UtensilRequired = false;
 
+        /// <summary>
+        /// The localization identifier for the eat message. Needs a "food" entity argument passed to it.
+        /// </summary>
         [DataField("eatMessage")]
         public string EatMessage = "food-nom";
+
+        /// <summary>
+        /// How long it takes to eat the food personally.
+        /// </summary>
+        [DataField("delay")]
+        public float Delay = 1;
 
         /// <summary>
         ///     This is how many seconds it takes to force feed someone this food.

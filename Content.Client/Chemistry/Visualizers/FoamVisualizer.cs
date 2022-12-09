@@ -12,7 +12,7 @@ using Robust.Shared.Serialization.Manager.Attributes;
 namespace Content.Client.Chemistry.Visualizers
 {
     [UsedImplicitly]
-    public class FoamVisualizer : AppearanceVisualizer, ISerializationHooks
+    public sealed class FoamVisualizer : AppearanceVisualizer, ISerializationHooks
     {
         private const string AnimationKey = "foamdissolve_animation";
 
@@ -33,6 +33,7 @@ namespace Content.Client.Chemistry.Visualizers
             flick.KeyFrames.Add(new AnimationTrackSpriteFlick.KeyFrame(_state, 0f));
         }
 
+        [Obsolete("Subscribe to AppearanceChangeEvent instead.")]
         public override void OnChangeData(AppearanceComponent component)
         {
             base.OnChangeData(component);

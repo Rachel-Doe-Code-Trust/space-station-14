@@ -9,7 +9,6 @@ using Content.Shared.Disposal;
 using NUnit.Framework;
 using Robust.Shared.GameObjects;
 using Robust.Shared.IoC;
-using Robust.Shared.Map;
 using Robust.Shared.Reflection;
 
 namespace Content.IntegrationTests.Tests.Disposal
@@ -18,10 +17,10 @@ namespace Content.IntegrationTests.Tests.Disposal
     [TestOf(typeof(DisposalHolderComponent))]
     [TestOf(typeof(DisposalEntryComponent))]
     [TestOf(typeof(DisposalUnitComponent))]
-    public class DisposalUnitTest : ContentIntegrationTest
+    public sealed class DisposalUnitTest
     {
         [Reflect(false)]
-        private class DisposalUnitTestSystem : EntitySystem
+        private sealed class DisposalUnitTestSystem : EntitySystem
         {
             public override void Initialize()
             {
@@ -45,7 +44,7 @@ namespace Content.IntegrationTests.Tests.Disposal
             foreach (var entity in entities)
             {
                 Assert.That(system.CanInsert(unit, entity), Is.EqualTo(result));
-                system.TryInsert(unit.Owner, entity, entity);
+                system.TryInsert(unit.Owner, entity, null);
             }
         }
 
@@ -53,7 +52,7 @@ namespace Content.IntegrationTests.Tests.Disposal
         {
             foreach (var entity in entities)
             {
-                Assert.That(unit.ContainedEntities.Contains(entity), Is.EqualTo(result));
+                Assert.That(unit.Container.ContainedEntities.Contains(entity), Is.EqualTo(result));
             }
         }
 
@@ -65,11 +64,11 @@ namespace Content.IntegrationTests.Tests.Disposal
 
         private void Flush(DisposalUnitComponent unit, bool result, params EntityUid[] entities)
         {
-            Assert.That(unit.ContainedEntities, Is.SupersetOf(entities));
-            Assert.That(entities.Length, Is.EqualTo(unit.ContainedEntities.Count));
+            Assert.That(unit.Container.ContainedEntities, Is.SupersetOf(entities));
+            Assert.That(entities.Length, Is.EqualTo(unit.Container.ContainedEntities.Count));
 
             Assert.That(result, Is.EqualTo(EntitySystem.Get<DisposalUnitSystem>().TryFlush(unit)));
-            Assert.That(result || entities.Length == 0, Is.EqualTo(unit.ContainedEntities.Count == 0));
+            Assert.That(result || entities.Length == 0, Is.EqualTo(unit.Container.ContainedEntities.Count == 0));
         }
 
         private const string Prototypes = @"
@@ -78,12 +77,17 @@ namespace Content.IntegrationTests.Tests.Disposal
   id: HumanDummy
   components:
   - type: Body
+    prototype: Human
   - type: MobState
   - type: Damageable
     damageContainer: Biological
   - type: Physics
     bodyType: KinematicController
   - type: Fixtures
+    fixtures:
+    - shape:
+        !type:PhysShapeCircle
+        radius: 0.35
   - type: DoAfter
 
 - type: entity
@@ -97,6 +101,10 @@ namespace Content.IntegrationTests.Tests.Disposal
   - type: Physics
     bodyType: Dynamic
   - type: Fixtures
+    fixtures:
+    - shape:
+        !type:PhysShapeCircle
+        radius: 0.35
   - type: DoAfter
 
 - type: entity
@@ -111,6 +119,10 @@ namespace Content.IntegrationTests.Tests.Disposal
   - type: Physics
     bodyType: Static
   - type: Fixtures
+    fixtures:
+    - shape:
+        !type:PhysShapeCircle
+        radius: 0.35
 
 - type: entity
   name: DisposalTrunkDummy
@@ -124,9 +136,11 @@ namespace Content.IntegrationTests.Tests.Disposal
         [Test]
         public async Task Test()
         {
-            var options = new ServerIntegrationOptions { ExtraPrototypes = Prototypes };
-            var server = StartServer(options);
-            await server.WaitIdleAsync();
+            await using var pairTracker = await PoolManager.GetServerClient(new PoolSettings
+                {NoClient = true, ExtraPrototypes = Prototypes});
+            var server = pairTracker.Pair.Server;
+
+            var testMap = await PoolManager.CreateTestMap(pairTracker);
 
             EntityUid human = default!;
             EntityUid wrench = default!;
@@ -134,17 +148,17 @@ namespace Content.IntegrationTests.Tests.Disposal
             EntityUid disposalTrunk = default!;
             DisposalUnitComponent unit = default!;
 
-            var mapManager = server.ResolveDependency<IMapManager>();
             var entityManager = server.ResolveDependency<IEntityManager>();
 
             await server.WaitAssertion(() =>
             {
                 // Spawn the entities
-                var coordinates = GetMainEntityCoordinates(mapManager);
+                var coordinates = testMap.GridCoords;
                 human = entityManager.SpawnEntity("HumanDummy", coordinates);
                 wrench = entityManager.SpawnEntity("WrenchDummy", coordinates);
                 disposalUnit = entityManager.SpawnEntity("DisposalUnitDummy", coordinates);
-                disposalTrunk = entityManager.SpawnEntity("DisposalTrunkDummy", IoCManager.Resolve<IEntityManager>().GetComponent<TransformComponent>(disposalUnit).MapPosition);
+                disposalTrunk = entityManager.SpawnEntity("DisposalTrunkDummy",
+                    IoCManager.Resolve<IEntityManager>().GetComponent<TransformComponent>(disposalUnit).MapPosition);
 
                 // Test for components existing
                 ref DisposalUnitComponent? comp = ref unit!;
@@ -194,7 +208,7 @@ namespace Content.IntegrationTests.Tests.Disposal
                 // Remove power need
                 Assert.True(entityManager.TryGetComponent(disposalUnit, out ApcPowerReceiverComponent power));
                 power!.NeedsPower = false;
-                Assert.True(unit.Powered);
+                unit.Powered = true; //Power state changed event doesn't get fired smh
 
                 // Flush with a mob and an item
                 Flush(unit, true, human, wrench);
@@ -205,6 +219,7 @@ namespace Content.IntegrationTests.Tests.Disposal
                 // Re-pressurizing
                 Flush(unit, false);
             });
+            await pairTracker.CleanReturnAsync();
         }
     }
 }

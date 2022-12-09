@@ -1,24 +1,47 @@
-using System;
-using Robust.Shared.GameObjects;
+using Robust.Shared.Audio;
 using Robust.Shared.GameStates;
 using Robust.Shared.Serialization;
+using Robust.Shared.Utility;
 
 namespace Content.Shared.Tools.Components
 {
     [NetworkedComponent]
-    public class SharedMultipleToolComponent : Component
+    public abstract class SharedMultipleToolComponent : Component
     {
-        public override string Name => "MultipleTool";
+        [DataDefinition]
+        public sealed class ToolEntry
+        {
+            [DataField("behavior", required: true)]
+            public PrototypeFlags<ToolQualityPrototype> Behavior { get; } = new();
+
+            [DataField("useSound")]
+            public SoundSpecifier? Sound { get; } = null;
+
+            [DataField("changeSound")]
+            public SoundSpecifier? ChangeSound { get; } = null;
+
+            [DataField("sprite")]
+            public SpriteSpecifier? Sprite { get; } = null;
+        }
+
+        [DataField("entries", required: true)]
+        public ToolEntry[] Entries { get; } = Array.Empty<ToolEntry>();
+
+        [ViewVariables]
+        public uint CurrentEntry = 0;
+
+        [ViewVariables]
+        public string CurrentQualityName = String.Empty;
     }
 
     [NetSerializable, Serializable]
-    public class MultipleToolComponentState : ComponentState
+    public sealed class MultipleToolComponentState : ComponentState
     {
-        public string QualityName { get; }
+        public readonly uint Selected;
 
-        public MultipleToolComponentState(string qualityName)
+        public MultipleToolComponentState(uint selected)
         {
-            QualityName = qualityName;
+            Selected = selected;
         }
     }
 }

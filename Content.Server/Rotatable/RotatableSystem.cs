@@ -1,10 +1,6 @@
 using Content.Shared.Popups;
 using Content.Shared.Rotatable;
 using Content.Shared.Verbs;
-using Robust.Shared.GameObjects;
-using Robust.Shared.IoC;
-using Robust.Shared.Localization;
-using Robust.Shared.Maths;
 using Robust.Shared.Physics;
 
 namespace Content.Server.Rotatable
@@ -12,15 +8,15 @@ namespace Content.Server.Rotatable
     /// <summary>
     ///     Handles verbs for the <see cref="RotatableComponent"/> and <see cref="FlippableComponent"/> components.
     /// </summary>
-    public class RotatableSystem : EntitySystem
+    public sealed class RotatableSystem : EntitySystem
     {
         public override void Initialize()
         {
-            SubscribeLocalEvent<FlippableComponent, GetOtherVerbsEvent>(AddFlipVerb);
-            SubscribeLocalEvent<RotatableComponent, GetOtherVerbsEvent>(AddRotateVerbs);
+            SubscribeLocalEvent<FlippableComponent, GetVerbsEvent<Verb>>(AddFlipVerb);
+            SubscribeLocalEvent<RotatableComponent, GetVerbsEvent<Verb>>(AddRotateVerbs);
         }
 
-        private void AddFlipVerb(EntityUid uid, FlippableComponent component, GetOtherVerbsEvent args)
+        private void AddFlipVerb(EntityUid uid, FlippableComponent component, GetVerbsEvent<Verb> args)
         {
             if (!args.CanAccess || !args.CanInteract || component.MirrorEntity == null)
                 return;
@@ -28,13 +24,16 @@ namespace Content.Server.Rotatable
             Verb verb = new();
             verb.Act = () => TryFlip(component, args.User);
             verb.Text = Loc.GetString("flippable-verb-get-data-text");
+            verb.DoContactInteraction = true;
             // TODO VERB ICONS Add Uno reverse card style icon?
             args.Verbs.Add(verb);
         }
 
-        private void AddRotateVerbs(EntityUid uid, RotatableComponent component, GetOtherVerbsEvent args)
+        private void AddRotateVerbs(EntityUid uid, RotatableComponent component, GetVerbsEvent<Verb> args)
         {
-            if (!args.CanAccess || !args.CanInteract)
+            if (!args.CanAccess
+                || !args.CanInteract
+                || Transform(uid).NoLocalRotation) // Good ol prototype inheritance, eh?
                 return;
 
             // Check if the object is anchored, and whether we are still allowed to rotate it.
@@ -43,31 +42,38 @@ namespace Content.Server.Rotatable
                 physics.BodyType == BodyType.Static)
                 return;
 
-            Verb resetRotation = new();
-            resetRotation.Act = () => EntityManager.GetComponent<TransformComponent>(component.Owner).LocalRotation = Angle.Zero;
-            resetRotation.Category = VerbCategory.Rotate;
-            resetRotation.IconTexture = "/Textures/Interface/VerbIcons/refresh.svg.192dpi.png";
-            resetRotation.Text = "Reset";
-            resetRotation.Priority = -2; // show CCW, then CW, then reset
-            resetRotation.CloseMenu = false;
+            Verb resetRotation = new ()
+            {
+                DoContactInteraction = true,
+                Act = () => EntityManager.GetComponent<TransformComponent>(component.Owner).LocalRotation = Angle.Zero,
+                Category = VerbCategory.Rotate,
+                IconTexture = "/Textures/Interface/VerbIcons/refresh.svg.192dpi.png",
+                Text = "Reset",
+                Priority = -2, // show CCW, then CW, then reset
+                CloseMenu = false,
+            };
             args.Verbs.Add(resetRotation);
 
             // rotate clockwise
-            Verb rotateCW = new();
-            rotateCW.Act = () => EntityManager.GetComponent<TransformComponent>(component.Owner).LocalRotation += Angle.FromDegrees(-90);
-            rotateCW.Category = VerbCategory.Rotate;
-            rotateCW.IconTexture =  "/Textures/Interface/VerbIcons/rotate_cw.svg.192dpi.png";
-            rotateCW.Priority = -1;
-            rotateCW.CloseMenu = false; // allow for easy double rotations.
+            Verb rotateCW = new()
+            {
+                Act = () => EntityManager.GetComponent<TransformComponent>(component.Owner).LocalRotation -= component.Increment,
+                Category = VerbCategory.Rotate,
+                IconTexture =  "/Textures/Interface/VerbIcons/rotate_cw.svg.192dpi.png",
+                Priority = -1,
+                CloseMenu = false, // allow for easy double rotations.
+            };
             args.Verbs.Add(rotateCW);
 
             // rotate counter-clockwise
-            Verb rotateCCW = new();
-            rotateCCW.Act = () => EntityManager.GetComponent<TransformComponent>(component.Owner).LocalRotation += Angle.FromDegrees(90);
-            rotateCCW.Category = VerbCategory.Rotate;
-            rotateCCW.IconTexture = "/Textures/Interface/VerbIcons/rotate_ccw.svg.192dpi.png";
-            rotateCCW.Priority = 0;
-            rotateCCW.CloseMenu = false; // allow for easy double rotations.
+            Verb rotateCCW = new()
+            {
+                Act = () => EntityManager.GetComponent<TransformComponent>(component.Owner).LocalRotation += component.Increment,
+                Category = VerbCategory.Rotate,
+                IconTexture = "/Textures/Interface/VerbIcons/rotate_ccw.svg.192dpi.png",
+                Priority = 0,
+                CloseMenu = false, // allow for easy double rotations.
+            };
             args.Verbs.Add(rotateCCW);
         }
 

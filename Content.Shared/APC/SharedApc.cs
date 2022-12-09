@@ -1,5 +1,3 @@
-﻿using System;
-using Robust.Shared.GameObjects;
 using Robust.Shared.Serialization;
 
 namespace Content.Shared.APC
@@ -7,7 +5,28 @@ namespace Content.Shared.APC
     [Serializable, NetSerializable]
     public enum ApcVisuals
     {
-        ChargeState
+        /// <summary>
+        ///     APC lights/HUD.
+        /// </summary>
+        ChargeState,
+
+        /// <summary>
+        ///     APC frame.
+        /// </summary>
+        PanelState
+    }
+
+    [Serializable, NetSerializable]
+    public enum ApcPanelState
+    {
+        /// <summary>
+        ///     APC is closed.
+        /// </summary>
+        Closed,
+        /// <summary>
+        ///     APC opened.
+        /// </summary>
+        Open
     }
 
     [Serializable, NetSerializable]
@@ -27,6 +46,11 @@ namespace Content.Shared.APC
         ///     APC battery is full and has enough power.
         /// </summary>
         Full,
+
+        /// <summary>
+        /// APC is emagged (and not displaying other useful power colors at a glance)
+        /// </summary>
+        Emag,
     }
 
     [Serializable, NetSerializable]

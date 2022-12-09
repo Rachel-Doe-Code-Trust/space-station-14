@@ -8,8 +8,9 @@ using Robust.Shared.Maths;
 namespace Content.Client.Chemistry.Visualizers
 {
     [UsedImplicitly]
-    public class SmokeVisualizer : AppearanceVisualizer
+    public sealed class SmokeVisualizer : AppearanceVisualizer
     {
+        [Obsolete("Subscribe to AppearanceChangeEvent instead.")]
         public override void OnChangeData(AppearanceComponent component)
         {
             base.OnChangeData(component);

@@ -11,8 +11,9 @@ using Robust.Shared.Maths;
 namespace Content.Client.Buckle
 {
     [UsedImplicitly]
-    public class BuckleVisualizer : AppearanceVisualizer
+    public sealed class BuckleVisualizer : AppearanceVisualizer
     {
+        [Obsolete("Subscribe to AppearanceChangeEvent instead.")]
         public override void OnChangeData(AppearanceComponent component)
         {
             if (!component.TryGetData<bool>(BuckleVisuals.Buckled, out var buckled) ||

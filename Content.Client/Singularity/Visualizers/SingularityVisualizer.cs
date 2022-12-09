@@ -9,11 +9,12 @@ using Robust.Shared.Utility;
 namespace Content.Client.Singularity.Visualizers
 {
     [UsedImplicitly]
-    public class SingularityVisualizer : AppearanceVisualizer
+    public sealed class SingularityVisualizer : AppearanceVisualizer
     {
         [DataField("layer")]
         private int Layer { get; } = 0;
 
+        [Obsolete("Subscribe to your component being initialised instead.")]
         public override void InitializeEntity(EntityUid entity)
         {
             base.InitializeEntity(entity);
@@ -21,6 +22,7 @@ namespace Content.Client.Singularity.Visualizers
             IoCManager.Resolve<IEntityManager>().GetComponentOrNull<SpriteComponent>(entity)?.LayerMapReserveBlank(Layer);
         }
 
+        [Obsolete("Subscribe to AppearanceChangeEvent instead.")]
         public override void OnChangeData(AppearanceComponent component)
         {
             base.OnChangeData(component);

@@ -7,8 +7,9 @@ using Robust.Shared.IoC;
 namespace Content.Client.PowerCell
 {
     [UsedImplicitly]
-    public class PowerChargerVisualizer : AppearanceVisualizer
+    public sealed class PowerChargerVisualizer : AppearanceVisualizer
     {
+        [Obsolete("Subscribe to your component being initialised instead.")]
         public override void InitializeEntity(EntityUid entity)
         {
             base.InitializeEntity(entity);
@@ -23,6 +24,7 @@ namespace Content.Client.PowerCell
             sprite.LayerSetShader(Layers.Light, "unshaded");
         }
 
+        [Obsolete("Subscribe to AppearanceChangeEvent instead.")]
         public override void OnChangeData(AppearanceComponent component)
         {
             base.OnChangeData(component);

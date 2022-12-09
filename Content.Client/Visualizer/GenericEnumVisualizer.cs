@@ -13,7 +13,7 @@ using Robust.Shared.Serialization.Manager.Attributes;
 namespace Content.Client.Visualizer
 {
     [UsedImplicitly]
-    public class GenericEnumVisualizer : AppearanceVisualizer, ISerializationHooks
+    public sealed class GenericEnumVisualizer : AppearanceVisualizer, ISerializationHooks
     {
         public Enum Key { get; set; } = default!;
 
@@ -51,6 +51,7 @@ namespace Content.Client.Visualizer
             States = _statesRaw.ToDictionary(kvp => ResolveRef(kvp.Key), kvp => kvp.Value);
         }
 
+        [Obsolete("Subscribe to AppearanceChangeEvent instead.")]
         public override void OnChangeData(AppearanceComponent component)
         {
             base.OnChangeData(component);

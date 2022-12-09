@@ -1,12 +1,11 @@
-﻿using System.Linq;
-using Content.Shared.Examine;
+using Content.Shared.DoAfter;
 using JetBrains.Annotations;
-using Robust.Client.GameObjects;
 using Robust.Client.Graphics;
-using Robust.Shared.GameObjects;
-using Robust.Shared.IoC;
-using Robust.Shared.Map;
+using Robust.Client.Player;
+using Robust.Shared.GameStates;
+using Robust.Shared.Prototypes;
 using Robust.Shared.Timing;
+using Robust.Shared.Utility;
 
 namespace Content.Client.DoAfter
 {
@@ -17,126 +16,207 @@ namespace Content.Client.DoAfter
     [UsedImplicitly]
     public sealed class DoAfterSystem : EntitySystem
     {
-    /*
-     * How this is currently setup (client-side):
-     * DoAfterGui handles the actual bars displayed above heads. It also uses FrameUpdate to flash cancellations
-     * DoAfterEntitySystem handles checking predictions every tick as well as removing / cancelling DoAfters due to time elapsed.
-     * DoAfterComponent handles network messages inbound as well as storing the DoAfter data.
-     *     It'll also handle overall cleanup when one is removed (i.e. removing it from DoAfterGui).
-    */
-        [Dependency] private readonly IEyeManager _eyeManager = default!;
         [Dependency] private readonly IGameTiming _gameTiming = default!;
+        [Dependency] private readonly IOverlayManager _overlay = default!;
+        [Dependency] private readonly IPlayerManager _player = default!;
+        [Dependency] private readonly IPrototypeManager _prototype = default!;
 
         /// <summary>
         ///     We'll use an excess time so stuff like finishing effects can show.
         /// </summary>
         public const float ExcessTime = 0.5f;
 
-        private EntityUid? _attachedEntity;
-
         public override void Initialize()
         {
             base.Initialize();
-            SubscribeLocalEvent<PlayerAttachSysMessage>(HandlePlayerAttached);
+            UpdatesOutsidePrediction = true;
+            SubscribeNetworkEvent<CancelledDoAfterMessage>(OnCancelledDoAfter);
+            SubscribeLocalEvent<DoAfterComponent, ComponentHandleState>(OnDoAfterHandleState);
+            _overlay.AddOverlay(
+                new DoAfterOverlay(
+                    EntityManager,
+                    _prototype));
         }
 
-        private void HandlePlayerAttached(PlayerAttachSysMessage message)
+        public override void Shutdown()
         {
-            _attachedEntity = message.AttachedEntity;
+            base.Shutdown();
+            _overlay.RemoveOverlay<DoAfterOverlay>();
         }
 
-        public override void Update(float frameTime)
+        private void OnDoAfterHandleState(EntityUid uid, DoAfterComponent component, ref ComponentHandleState args)
         {
-            base.Update(frameTime);
-
-            var currentTime = _gameTiming.CurTime;
-
-            // Can't see any I guess?
-            if (_attachedEntity is not {Valid: true} entity || Deleted(entity))
+            if (args.Current is not DoAfterComponentState state)
                 return;
 
-            var viewbox = _eyeManager.GetWorldViewport().Enlarged(2.0f);
-            var entXform = Transform(entity);
-            var playerPos = entXform.MapPosition;
+            var toRemove = new RemQueue<ClientDoAfter>();
 
-            foreach (var (comp, xform) in EntityManager.EntityQuery<DoAfterComponent, TransformComponent>(true))
+            foreach (var (id, doAfter) in component.DoAfters)
             {
-                var doAfters = comp.DoAfters.ToList();
-                var compPos = xform.MapPosition;
+                var found = false;
 
-                if (doAfters.Count == 0 ||
-                    compPos.MapId != entXform.MapID ||
-                    !viewbox.Contains(compPos.Position))
+                foreach (var clientdoAfter in state.DoAfters)
                 {
-                    comp.Disable();
-                    continue;
+                    if (clientdoAfter.ID == id)
+                    {
+                        found = true;
+                        break;
+                    }
                 }
 
-                var range = (compPos.Position - playerPos.Position).Length + 0.01f;
-
-                if (comp.Owner != _attachedEntity &&
-                    !ExamineSystemShared.InRangeUnOccluded(
-                        playerPos,
-                        compPos, range,
-                        ent => ent == comp.Owner || ent == _attachedEntity))
+                if (!found)
                 {
-                    comp.Disable();
+                    toRemove.Add(doAfter);
+                }
+            }
+
+            foreach (var doAfter in toRemove)
+            {
+                Remove(component, doAfter);
+            }
+
+            foreach (var doAfter in state.DoAfters)
+            {
+                if (component.DoAfters.ContainsKey(doAfter.ID))
+                    continue;
+
+                component.DoAfters.Add(doAfter.ID, doAfter);
+            }
+        }
+
+        private void OnCancelledDoAfter(CancelledDoAfterMessage ev)
+        {
+            if (!TryComp<DoAfterComponent>(ev.Uid, out var doAfter))
+                return;
+
+            Cancel(doAfter, ev.ID);
+        }
+
+        /// <summary>
+        ///     Remove a DoAfter without showing a cancellation graphic.
+        /// </summary>
+        public void Remove(DoAfterComponent component, ClientDoAfter clientDoAfter)
+        {
+            component.DoAfters.Remove(clientDoAfter.ID);
+
+            var found = false;
+
+            component.CancelledDoAfters.Remove(clientDoAfter.ID);
+
+            if (!found)
+                component.DoAfters.Remove(clientDoAfter.ID);
+        }
+
+        /// <summary>
+        ///     Mark a DoAfter as cancelled and show a cancellation graphic.
+        /// </summary>
+        ///     Actual removal is handled by DoAfterEntitySystem.
+        public void Cancel(DoAfterComponent component, byte id)
+        {
+            if (component.CancelledDoAfters.ContainsKey(id))
+                return;
+
+            if (!component.DoAfters.ContainsKey(id))
+                return;
+
+            var doAfterMessage = component.DoAfters[id];
+            doAfterMessage.Cancelled = true;
+            component.CancelledDoAfters.Add(id, doAfterMessage);
+        }
+
+        // TODO separate DoAfter & ActiveDoAfter components for the entity query.
+        public override void Update(float frameTime)
+        {
+            if (!_gameTiming.IsFirstTimePredicted)
+                return;
+
+            var playerEntity = _player.LocalPlayer?.ControlledEntity;
+
+            foreach (var (comp, xform) in EntityQuery<DoAfterComponent, TransformComponent>())
+            {
+                var doAfters = comp.DoAfters;
+
+                if (doAfters.Count == 0)
+                {
                     continue;
                 }
-
-                comp.Enable();
 
                 var userGrid = xform.Coordinates;
+                var toRemove = new RemQueue<ClientDoAfter>();
 
                 // Check cancellations / finishes
                 foreach (var (id, doAfter) in doAfters)
                 {
-                    var elapsedTime = (currentTime - doAfter.StartTime).TotalSeconds;
-
                     // If we've passed the final time (after the excess to show completion graphic) then remove.
-                    if (elapsedTime > doAfter.Delay + ExcessTime)
+                    if ((doAfter.Accumulator + doAfter.CancelledAccumulator) > doAfter.Delay + ExcessTime)
                     {
-                        comp.Remove(doAfter);
+                        toRemove.Add(doAfter);
                         continue;
                     }
 
-                    // Don't predict cancellation if it's already finished.
-                    if (elapsedTime > doAfter.Delay)
+                    if (doAfter.Cancelled)
+                    {
+                        doAfter.CancelledAccumulator += frameTime;
+                        continue;
+                    }
+
+                    doAfter.Accumulator += frameTime;
+
+                    // Well we finished so don't try to predict cancels.
+                    if (doAfter.Accumulator > doAfter.Delay)
                     {
                         continue;
                     }
 
                     // Predictions
+                    if (comp.Owner != playerEntity)
+                        continue;
+
+                    // TODO: Add these back in when I work out some system for changing the accumulation rate
+                    // based on ping. Right now these would show as cancelled near completion if we moved at the end
+                    // despite succeeding.
+                    continue;
+
                     if (doAfter.BreakOnUserMove)
                     {
                         if (!userGrid.InRange(EntityManager, doAfter.UserGrid, doAfter.MovementThreshold))
                         {
-                            comp.Cancel(id, currentTime);
+                            Cancel(comp, id);
                             continue;
                         }
                     }
 
                     if (doAfter.BreakOnTargetMove)
                     {
-                        if (EntityManager.EntityExists(doAfter.TargetUid) &&
-                            !Transform(doAfter.TargetUid).Coordinates.InRange(EntityManager, doAfter.TargetGrid,
+                        if (!EntityManager.Deleted(doAfter.Target) &&
+                            !Transform(doAfter.Target.Value).Coordinates.InRange(EntityManager, doAfter.TargetGrid,
                                 doAfter.MovementThreshold))
                         {
-                            comp.Cancel(id, currentTime);
+                            Cancel(comp, id);
                             continue;
                         }
                     }
                 }
 
-                var count = comp.CancelledDoAfters.Count;
-                // Remove cancelled DoAfters after ExcessTime has elapsed
-                for (var i = count - 1; i >= 0; i--)
+                foreach (var doAfter in toRemove)
                 {
-                    var cancelled = comp.CancelledDoAfters[i];
-                    if ((currentTime - cancelled.CancelTime).TotalSeconds > ExcessTime)
+                    Remove(comp, doAfter);
+                }
+
+                // Remove cancelled DoAfters after ExcessTime has elapsed
+                var toRemoveCancelled = new List<ClientDoAfter>();
+
+                foreach (var (_, doAfter) in comp.CancelledDoAfters)
+                {
+                    if (doAfter.CancelledAccumulator > ExcessTime)
                     {
-                        comp.Remove(cancelled.Message);
+                        toRemoveCancelled.Add(doAfter);
                     }
+                }
+
+                foreach (var doAfter in toRemoveCancelled)
+                {
+                    Remove(comp, doAfter);
                 }
             }
         }

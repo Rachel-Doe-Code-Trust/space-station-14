@@ -1,14 +1,11 @@
-using System;
 using Content.Shared.Research.Components;
 using Content.Shared.Research.Prototypes;
-using Robust.Shared.GameObjects;
-using Robust.Shared.IoC;
 using Robust.Shared.Prototypes;
 
 namespace Content.Client.Research
 {
     [RegisterComponent]
-    public class TechnologyDatabaseComponent : SharedTechnologyDatabaseComponent
+    public sealed class TechnologyDatabaseComponent : SharedTechnologyDatabaseComponent
     {
         /// <summary>
         ///     Event called when the database is updated.
@@ -21,14 +18,14 @@ namespace Content.Client.Research
 
             if (curState is not TechnologyDatabaseState state) return;
 
-            _technologies.Clear();
+            TechnologyIds.Clear();
 
             var protoManager = IoCManager.Resolve<IPrototypeManager>();
 
             foreach (var techID in state.Technologies)
             {
-                if (!protoManager.TryIndex(techID, out TechnologyPrototype? technology)) continue;
-                _technologies.Add(technology);
+                if (!protoManager.HasIndex<TechnologyPrototype>(techID)) continue;
+                TechnologyIds.Add(techID);
             }
 
             OnDatabaseUpdated?.Invoke();

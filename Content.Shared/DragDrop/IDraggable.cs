@@ -1,5 +1,3 @@
-using Robust.Shared.Analyzers;
-using Robust.Shared.GameObjects;
 using Robust.Shared.Map;
 
 namespace Content.Shared.DragDrop
@@ -56,7 +54,8 @@ namespace Content.Shared.DragDrop
         }
     }
 
-    public class StartDragDropEvent : EntityEventArgs
+    [Virtual]
+    public class StartDragDropEvent : HandledEntityEventArgs
     {
         /// <summary>
         ///     Entity doing the drag and drop.
@@ -80,6 +79,7 @@ namespace Content.Shared.DragDrop
         }
     }
 
+    [Virtual]
     public class CanDropEvent : StartDragDropEvent
     {
         /// <summary>
@@ -100,6 +100,7 @@ namespace Content.Shared.DragDrop
         }
     }
 
+    [Virtual]
     public class DragDropEvent : CanDropEvent
     {
         /// <summary>

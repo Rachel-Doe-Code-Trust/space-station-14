@@ -1,74 +1,22 @@
-﻿using Content.Server.Atmos.Components;
-using Robust.Shared.GameObjects;
-using Robust.Shared.IoC;
-using Robust.Shared.ViewVariables;
-
+﻿using System.Threading;
 namespace Content.Server.Body.Components
 {
+    /// <summary>
+    /// Handles hooking up a mask (breathing tool) / gas tank together and allowing the Owner to breathe through it.
+    /// </summary>
     [RegisterComponent]
-    public class InternalsComponent : Component
+    public sealed class InternalsComponent : Component
     {
-        [Dependency] private readonly IEntityManager _entMan = default!;
+        [ViewVariables] public EntityUid? GasTankEntity { get; set; }
+        [ViewVariables] public EntityUid? BreathToolEntity { get; set; }
 
-        public override string Name => "Internals";
-        [ViewVariables] public EntityUid GasTankEntity { get; set; }
-        [ViewVariables] public EntityUid BreathToolEntity { get; set; }
+        /// <summary>
+        /// Toggle Internals delay (seconds) when the target is not you.
+        /// </summary>
+        [ViewVariables(VVAccess.ReadWrite)]
+        [DataField("delay")]
+        public float Delay = 3;
 
-        public void DisconnectBreathTool()
-        {
-            var old = BreathToolEntity;
-            BreathToolEntity = default;
-
-            if (old != default && _entMan.TryGetComponent(old, out BreathToolComponent? breathTool) )
-            {
-                breathTool.DisconnectInternals();
-                DisconnectTank();
-            }
-        }
-
-        public void ConnectBreathTool(EntityUid toolEntity)
-        {
-            if (BreathToolEntity != default && _entMan.TryGetComponent(BreathToolEntity, out BreathToolComponent? tool))
-            {
-                tool.DisconnectInternals();
-            }
-
-            BreathToolEntity = toolEntity;
-        }
-
-        public void DisconnectTank()
-        {
-            if (GasTankEntity != default && _entMan.TryGetComponent(GasTankEntity, out GasTankComponent? tank))
-            {
-                tank.DisconnectFromInternals(Owner);
-            }
-
-            GasTankEntity = default;
-        }
-
-        public bool TryConnectTank(EntityUid tankEntity)
-        {
-            if (BreathToolEntity == default)
-                return false;
-
-            if (GasTankEntity != default && _entMan.TryGetComponent(GasTankEntity, out GasTankComponent? tank))
-            {
-                tank.DisconnectFromInternals(Owner);
-            }
-
-            GasTankEntity = tankEntity;
-            return true;
-        }
-
-        public bool AreInternalsWorking()
-        {
-            return BreathToolEntity != default &&
-                   GasTankEntity != default &&
-                   _entMan.TryGetComponent(BreathToolEntity, out BreathToolComponent? breathTool) &&
-                   breathTool.IsFunctional &&
-                   _entMan.TryGetComponent(GasTankEntity, out GasTankComponent? gasTank) &&
-                   gasTank.Air != default;
-        }
-
+        public CancellationTokenSource? CancelToken = null;
     }
 }

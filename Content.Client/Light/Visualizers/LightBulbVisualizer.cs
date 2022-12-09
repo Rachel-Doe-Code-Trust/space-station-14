@@ -8,14 +8,15 @@ using Robust.Shared.Maths;
 namespace Content.Client.Light.Visualizers
 {
     [UsedImplicitly]
-    public class LightBulbVisualizer : AppearanceVisualizer
+    public sealed class LightBulbVisualizer : AppearanceVisualizer
     {
+        [Obsolete("Subscribe to AppearanceChangeEvent instead.")]
         public override void OnChangeData(AppearanceComponent component)
         {
             base.OnChangeData(component);
 
             var entities = IoCManager.Resolve<IEntityManager>();
-            if (!entities.TryGetComponent(component.Owner, out SpriteComponent sprite))
+            if (!entities.TryGetComponent(component.Owner, out SpriteComponent? sprite))
                 return;
 
             // update sprite state

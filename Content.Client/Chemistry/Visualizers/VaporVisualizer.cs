@@ -12,7 +12,7 @@ using Robust.Shared.Serialization.Manager.Attributes;
 namespace Content.Client.Chemistry.Visualizers
 {
     [UsedImplicitly]
-    public class VaporVisualizer : AppearanceVisualizer, ISerializationHooks
+    public sealed class VaporVisualizer : AppearanceVisualizer, ISerializationHooks
     {
         private const string AnimationKey = "flick_animation";
 
@@ -35,6 +35,7 @@ namespace Content.Client.Chemistry.Visualizers
             }
         }
 
+        [Obsolete("Subscribe to AppearanceChangeEvent instead.")]
         public override void OnChangeData(AppearanceComponent component)
         {
             base.OnChangeData(component);

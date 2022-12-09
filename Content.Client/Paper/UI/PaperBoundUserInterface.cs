@@ -8,11 +8,11 @@ using static Content.Shared.Paper.SharedPaperComponent;
 namespace Content.Client.Paper.UI
 {
     [UsedImplicitly]
-    public class PaperBoundUserInterface : BoundUserInterface
+    public sealed class PaperBoundUserInterface : BoundUserInterface
     {
         private PaperWindow? _window;
 
-        public PaperBoundUserInterface(ClientUserInterfaceComponent owner, object uiKey) : base(owner, uiKey)
+        public PaperBoundUserInterface(ClientUserInterfaceComponent owner, Enum uiKey) : base(owner, uiKey)
         {
         }
 
@@ -39,7 +39,7 @@ namespace Content.Client.Paper.UI
         {
             if (!string.IsNullOrEmpty(obj.Text))
             {
-                SendMessage(new PaperInputText(obj.Text));
+                SendMessage(new PaperInputTextMessage(obj.Text));
 
                 if (_window != null)
                 {

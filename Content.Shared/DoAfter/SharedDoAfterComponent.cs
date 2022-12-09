@@ -1,6 +1,4 @@
-using System;
-using System.Collections.Generic;
-using Robust.Shared.GameObjects;
+using Content.Shared.FixedPoint;
 using Robust.Shared.GameStates;
 using Robust.Shared.Map;
 using Robust.Shared.Serialization;
@@ -10,7 +8,6 @@ namespace Content.Shared.DoAfter
     [NetworkedComponent()]
     public abstract class SharedDoAfterComponent : Component
     {
-        public override string Name => "DoAfter";
     }
 
     [Serializable, NetSerializable]
@@ -25,24 +22,32 @@ namespace Content.Shared.DoAfter
     }
 
     [Serializable, NetSerializable]
-#pragma warning disable 618
-    public sealed class CancelledDoAfterMessage : ComponentMessage
-#pragma warning restore 618
+    public sealed class CancelledDoAfterMessage : EntityEventArgs
     {
+        public EntityUid Uid;
         public byte ID { get; }
 
-        public CancelledDoAfterMessage(byte id)
+        public CancelledDoAfterMessage(EntityUid uid, byte id)
         {
+            Uid = uid;
             ID = id;
         }
     }
 
+    // TODO: Merge this with the actual DoAfter
     /// <summary>
     ///     We send a trimmed-down version of the DoAfter for the client for it to use.
     /// </summary>
     [Serializable, NetSerializable]
     public sealed class ClientDoAfter
     {
+        public bool Cancelled = false;
+
+        /// <summary>
+        /// Accrued time when cancelled.
+        /// </summary>
+        public float CancelledAccumulator;
+
         // To see what these do look at DoAfter and DoAfterEventArgs
         public byte ID { get; }
 
@@ -52,7 +57,9 @@ namespace Content.Shared.DoAfter
 
         public EntityCoordinates TargetGrid { get; }
 
-        public EntityUid TargetUid { get; }
+        public EntityUid? Target { get; }
+
+        public float Accumulator;
 
         public float Delay { get; }
 
@@ -63,7 +70,10 @@ namespace Content.Shared.DoAfter
 
         public float MovementThreshold { get; }
 
-        public ClientDoAfter(byte id, EntityCoordinates userGrid, EntityCoordinates targetGrid, TimeSpan startTime, float delay, bool breakOnUserMove, bool breakOnTargetMove, float movementThreshold, EntityUid targetUid = default)
+        public FixedPoint2 DamageThreshold { get; }
+
+        public ClientDoAfter(byte id, EntityCoordinates userGrid, EntityCoordinates targetGrid, TimeSpan startTime,
+            float delay, bool breakOnUserMove, bool breakOnTargetMove, float movementThreshold, FixedPoint2 damageThreshold, EntityUid? target = null)
         {
             ID = id;
             UserGrid = userGrid;
@@ -73,7 +83,8 @@ namespace Content.Shared.DoAfter
             BreakOnUserMove = breakOnUserMove;
             BreakOnTargetMove = breakOnTargetMove;
             MovementThreshold = movementThreshold;
-            TargetUid = targetUid;
+            DamageThreshold = damageThreshold;
+            Target = target;
         }
     }
 }

@@ -1,9 +1,13 @@
 using System.Collections.Generic;
 using System.Linq;
+using Content.Client.CombatMode;
 using Content.Client.Examine;
+using Content.Client.Gameplay;
 using Content.Client.Verbs;
 using Content.Client.Viewport;
 using Content.Shared.CCVar;
+using Content.Shared.CombatMode;
+using Content.Shared.Examine;
 using Content.Shared.Input;
 using Robust.Client.GameObjects;
 using Robust.Client.Graphics;
@@ -17,6 +21,7 @@ using Robust.Shared.Input;
 using Robust.Shared.Input.Binding;
 using Robust.Shared.IoC;
 using Robust.Shared.Log;
+using Robust.Shared.Map;
 using Robust.Shared.Maths;
 using Robust.Shared.Timing;
 
@@ -44,6 +49,8 @@ namespace Content.Client.ContextMenu.UI
 
         private readonly VerbSystem _verbSystem;
         private readonly ExamineSystem _examineSystem;
+        private readonly TransformSystem _xform;
+        private readonly SharedCombatModeSystem _combatMode;
 
         /// <summary>
         ///     This maps the currently displayed entities to the actual GUI elements.
@@ -58,12 +65,14 @@ namespace Content.Client.ContextMenu.UI
             IoCManager.InjectDependencies(this);
 
             _verbSystem = verbSystem;
-            _examineSystem = EntitySystem.Get<ExamineSystem>();
+            _examineSystem = _entityManager.EntitySysManager.GetEntitySystem<ExamineSystem>();
+            _combatMode = _entityManager.EntitySysManager.GetEntitySystem<CombatModeSystem>();
+            _xform = _entityManager.EntitySysManager.GetEntitySystem<TransformSystem>();
 
             _cfg.OnValueChanged(CCVars.EntityMenuGroupingType, OnGroupingChanged, true);
 
             CommandBinds.Builder
-                .Bind(ContentKeyFunctions.OpenContextMenu,  new PointerInputCmdHandler(HandleOpenEntityMenu))
+                .Bind(EngineKeyFunctions.UseSecondary,  new PointerInputCmdHandler(HandleOpenEntityMenu, outsidePrediction: true))
                 .Register<EntityMenuPresenter>();
         }
 
@@ -101,18 +110,16 @@ namespace Content.Client.ContextMenu.UI
 
             // get an entity associated with this element
             var entity = entityElement.Entity;
-            if (!entity.Valid)
-            {
-                entity = GetFirstEntityOrNull(element.SubMenu);
-            }
+            entity ??= GetFirstEntityOrNull(element.SubMenu);
 
-            if (!entity.Valid)
+            // Deleted() automatically checks for null & existence.
+            if (_entityManager.Deleted(entity))
                 return;
 
             // open verb menu?
-            if (args.Function == ContentKeyFunctions.OpenContextMenu)
+            if (args.Function == EngineKeyFunctions.UseSecondary)
             {
-                _verbSystem.VerbMenu.OpenVerbMenu(entity);
+                _verbSystem.VerbMenu.OpenVerbMenu(entity.Value);
                 args.Handle();
                 return;
             }
@@ -120,7 +127,7 @@ namespace Content.Client.ContextMenu.UI
             // do examination?
             if (args.Function == ContentKeyFunctions.ExamineEntity)
             {
-                _systemManager.GetEntitySystem<ExamineSystem>().DoExamine(entity);
+                _systemManager.GetEntitySystem<ExamineSystem>().DoExamine(entity.Value);
                 args.Handle();
                 return;
             }
@@ -139,7 +146,7 @@ namespace Content.Client.ContextMenu.UI
                 var funcId = _inputManager.NetworkBindMap.KeyFunctionID(func);
 
                 var message = new FullInputCmdMessage(_gameTiming.CurTick, _gameTiming.TickFraction, funcId,
-                    BoundKeyState.Down, _entityManager.GetComponent<TransformComponent>(entity).Coordinates, args.PointerLocation, entity);
+                    BoundKeyState.Down, _entityManager.GetComponent<TransformComponent>(entity.Value).Coordinates, args.PointerLocation, entity.Value);
 
                 var session = _playerManager.LocalPlayer?.Session;
                 if (session != null)
@@ -158,7 +165,10 @@ namespace Content.Client.ContextMenu.UI
             if (args.State != BoundKeyState.Down)
                 return false;
 
-            if (_stateManager.CurrentState is not GameScreenBase)
+            if (_stateManager.CurrentState is not GameplayStateBase)
+                return false;
+
+            if (_combatMode.IsInCombatMode(args.Session?.AttachedEntity))
                 return false;
 
             var coords = args.Coordinates.ToMap(_entityManager);
@@ -185,9 +195,24 @@ namespace Content.Client.ContextMenu.UI
             var ignoreFov = !_eyeManager.CurrentEye.DrawFov ||
                 (_verbSystem.Visibility & MenuVisibility.NoFov) == MenuVisibility.NoFov;
 
+            _entityManager.TryGetComponent(player, out ExaminerComponent? examiner);
+            var xformQuery = _entityManager.GetEntityQuery<TransformComponent>();
+
             foreach (var entity in Elements.Keys.ToList())
             {
-                if (_entityManager.Deleted(entity) || !ignoreFov && !_examineSystem.CanExamine(player, entity))
+                if (!xformQuery.TryGetComponent(entity, out var xform))
+                {
+                    // entity was deleted
+                    RemoveEntity(entity);
+                    continue;
+                }
+
+                if (ignoreFov)
+                    continue;
+
+                var pos = new MapCoordinates(_xform.GetWorldPosition(xform, xformQuery), xform.MapID);
+
+                if (!_examineSystem.CanExamine(player, pos, e => e == player || e == entity, entity, examiner))
                     RemoveEntity(entity);
             }
         }
@@ -314,7 +339,7 @@ namespace Content.Client.ContextMenu.UI
                 element.SubMenu.Dispose();
                 element.SubMenu = null;
                 element.CountLabel.Visible = false;
-                Elements[entity] = element;
+                Elements[entity.Value] = element;
             }
 
             // update the parent element, so that it's count and entity icon gets updated.
@@ -326,17 +351,17 @@ namespace Content.Client.ContextMenu.UI
         /// <summary>
         ///     Recursively look through a sub-menu and return the first entity.
         /// </summary>
-        private EntityUid GetFirstEntityOrNull(ContextMenuPopup? menu)
+        private EntityUid? GetFirstEntityOrNull(ContextMenuPopup? menu)
         {
             if (menu == null)
-                return default;
+                return null;
 
             foreach (var element in menu.MenuBody.Children)
             {
                 if (element is not EntityMenuElement entityElement)
                     continue;
 
-                if (entityElement.Entity != default)
+                if (entityElement.Entity != null)
                 {
                     if (!_entityManager.Deleted(entityElement.Entity))
                         return entityElement.Entity;
@@ -345,11 +370,11 @@ namespace Content.Client.ContextMenu.UI
 
                 // if the element has no entity, its a group of entities with another attached sub-menu.
                 var entity = GetFirstEntityOrNull(entityElement.SubMenu);
-                if (entity != default)
+                if (entity != null)
                     return entity;
             }
 
-            return default;
+            return null;
         }
 
         public override void OpenSubMenu(ContextMenuElement element)

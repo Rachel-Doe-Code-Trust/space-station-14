@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Content.Shared.Rotation;
 using JetBrains.Annotations;
 using Robust.Client.Animations;
@@ -11,23 +11,24 @@ using Robust.Shared.Maths;
 namespace Content.Client.Rotation
 {
     [UsedImplicitly]
-    public class RotationVisualizer : AppearanceVisualizer
+    public sealed class RotationVisualizer : AppearanceVisualizer
     {
+        [Obsolete("Subscribe to AppearanceChangeEvent instead.")]
         public override void OnChangeData(AppearanceComponent component)
         {
             base.OnChangeData(component);
 
-            if (component.TryGetData<RotationState>(RotationVisuals.RotationState, out var state))
+            // if TryGet fails, state defaults to RotationState.Vertical.
+            component.TryGetData<RotationState>(RotationVisuals.RotationState, out var state);
+
+            switch (state)
             {
-                switch (state)
-                {
-                    case RotationState.Vertical:
-                        SetRotation(component, 0);
-                        break;
-                    case RotationState.Horizontal:
-                        SetRotation(component, Angle.FromDegrees(90));
-                        break;
-                }
+                case RotationState.Vertical:
+                    SetRotation(component, 0);
+                    break;
+                case RotationState.Horizontal:
+                    SetRotation(component, Angle.FromDegrees(90));
+                    break;
             }
         }
 
@@ -35,6 +36,11 @@ namespace Content.Client.Rotation
         {
             var entMan = IoCManager.Resolve<IEntityManager>();
             var sprite = entMan.GetComponent<ISpriteComponent>(component.Owner);
+
+            if (sprite.Rotation.Equals(rotation))
+            {
+                return;
+            }
 
             if (!entMan.TryGetComponent(sprite.Owner, out AnimationPlayerComponent? animation))
             {

@@ -1,14 +1,12 @@
-using Content.Server.Administration;
 using Content.Shared.Administration;
+using Content.Shared.GameTicking;
 using Robust.Server.Player;
 using Robust.Shared.Console;
-using Robust.Shared.GameObjects;
-using Robust.Shared.IoC;
 
 namespace Content.Server.GameTicking.Commands
 {
     [AnyCommand]
-    class ObserveCommand : IConsoleCommand
+    sealed class ObserveCommand : IConsoleCommand
     {
         public string Command => "observe";
         public string Description => "";
@@ -16,17 +14,28 @@ namespace Content.Server.GameTicking.Commands
 
         public void Execute(IConsoleShell shell, string argStr, string[] args)
         {
-            var player = shell.Player as IPlayerSession;
-            if (player == null)
+            if (shell.Player is not IPlayerSession player)
             {
                 return;
             }
 
             var ticker = EntitySystem.Get<GameTicker>();
-            if (ticker.PlayersInLobby.ContainsKey(player))
+
+            if (ticker.RunLevel == GameRunLevel.PreRoundLobby)
+            {
+                shell.WriteError("Wait until the round starts.");
+                return;
+            }
+
+            if (ticker.PlayerGameStatuses.TryGetValue(player.UserId, out var status) &&
+                status != PlayerGameStatus.JoinedGame)
+            {
                 ticker.MakeObserve(player);
+            }
             else
+            {
                 shell.WriteError($"{player.Name} is not in the lobby.   This incident will be reported.");
+            }
         }
     }
 }

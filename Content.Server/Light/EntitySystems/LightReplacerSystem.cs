@@ -1,24 +1,19 @@
 using System.Linq;
 using Content.Server.Light.Components;
 using Content.Server.Storage.Components;
-using Content.Shared.ActionBlocker;
 using Content.Shared.Interaction;
 using Content.Shared.Light;
 using Content.Shared.Popups;
 using JetBrains.Annotations;
 using Robust.Shared.Audio;
 using Robust.Shared.Containers;
-using Robust.Shared.GameObjects;
-using Robust.Shared.IoC;
-using Robust.Shared.Localization;
 using Robust.Shared.Player;
 
 namespace Content.Server.Light.EntitySystems
 {
     [UsedImplicitly]
-    public class LightReplacerSystem : EntitySystem
+    public sealed class LightReplacerSystem : EntitySystem
     {
-        [Dependency] private readonly ActionBlockerSystem _blocker = default!;
         [Dependency] private readonly PoweredLightSystem _poweredLight = default!;
         [Dependency] private readonly SharedPopupSystem _popupSystem = default!;
 
@@ -42,7 +37,6 @@ namespace Content.Server.Light.EntitySystems
                 return;
 
             // standard interaction checks
-            if (!_blocker.CanUse(eventArgs.User)) return;
             if (!eventArgs.CanReach) return;
 
             // behaviour will depends on target type
@@ -64,20 +58,14 @@ namespace Content.Server.Light.EntitySystems
             if (eventArgs.Handled)
                 return;
 
-            // standard interaction checks
-            if (!_blocker.CanInteract(eventArgs.User)) return;
+            var usedUid = eventArgs.Used;
 
-            if (eventArgs.Used != null)
-            {
-                var usedUid = eventArgs.Used;
-
-                // want to insert a new light bulb?
-                if (EntityManager.TryGetComponent(usedUid, out LightBulbComponent ? bulb))
-                    eventArgs.Handled = TryInsertBulb(uid, usedUid, eventArgs.User, true, component, bulb);
-                // add bulbs from storage?
-                else if (EntityManager.TryGetComponent(usedUid, out ServerStorageComponent? storage))
-                    eventArgs.Handled = TryInsertBulbsFromStorage(uid, usedUid, eventArgs.User, component, storage);
-            }
+            // want to insert a new light bulb?
+            if (EntityManager.TryGetComponent(usedUid, out LightBulbComponent? bulb))
+                eventArgs.Handled = TryInsertBulb(uid, usedUid, eventArgs.User, true, component, bulb);
+            // add bulbs from storage?
+            else if (EntityManager.TryGetComponent(usedUid, out ServerStorageComponent? storage))
+                eventArgs.Handled = TryInsertBulbsFromStorage(uid, usedUid, eventArgs.User, component, storage);
         }
 
         /// <summary>
@@ -108,7 +96,7 @@ namespace Content.Server.Light.EntitySystems
                 (e) => EntityManager.GetComponentOrNull<LightBulbComponent>(e)?.Type == fixture.BulbType);
 
             // found bulb in inserted storage
-            if (bulb != null)
+            if (bulb.Valid) // FirstOrDefault can return default/invalid uid.
             {
                 // try to remove it
                 var hasRemoved = replacer.InsertedBulbs.Remove(bulb);
@@ -143,8 +131,8 @@ namespace Content.Server.Light.EntitySystems
             var wasReplaced = _poweredLight.ReplaceBulb(fixtureUid, bulb, fixture);
             if (wasReplaced)
             {
-                SoundSystem.Play(Filter.Pvs(replacerUid), replacer.Sound.GetSound(),
-                    replacerUid, AudioParams.Default.WithVolume(-4f));
+                SoundSystem.Play(replacer.Sound.GetSound(),
+                    Filter.Pvs(replacerUid), replacerUid, AudioParams.Default.WithVolume(-4f));
             }
 
 
@@ -181,7 +169,7 @@ namespace Content.Server.Light.EntitySystems
             {
                 var msg = Loc.GetString("comp-light-replacer-insert-light",
                     ("light-replacer", replacer.Owner), ("bulb", bulb.Owner));
-                _popupSystem.PopupEntity(msg, replacerUid, Filter.Entities(userUid.Value));
+                _popupSystem.PopupEntity(msg, replacerUid, Filter.Entities(userUid.Value), PopupType.Medium);
             }
 
             return hasInsert;
@@ -220,7 +208,7 @@ namespace Content.Server.Light.EntitySystems
             if (insertedBulbs > 0 && userUid != null)
             {
                 var msg = Loc.GetString("comp-light-replacer-refill-from-storage", ("light-replacer", storage.Owner));
-                _popupSystem.PopupEntity(msg, replacerUid, Filter.Entities(userUid.Value));
+                _popupSystem.PopupEntity(msg, replacerUid, Filter.Entities(userUid.Value), PopupType.Medium);
             }
 
             return insertedBulbs > 0;

@@ -1,21 +1,17 @@
-using System;
-using System.Collections.Generic;
 using Content.Shared.Materials;
-using Robust.Shared.IoC;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization;
-using Robust.Shared.Serialization.Manager.Attributes;
+using Robust.Shared.Serialization.TypeSerializers.Implementations.Custom.Prototype;
 using Robust.Shared.Serialization.TypeSerializers.Implementations.Custom.Prototype.Dictionary;
 using Robust.Shared.Utility;
-using Robust.Shared.ViewVariables;
 
 namespace Content.Shared.Research.Prototypes
 {
     [NetSerializable, Serializable, Prototype("latheRecipe")]
-    public class LatheRecipePrototype : IPrototype
+    public sealed class LatheRecipePrototype : IPrototype
     {
         [ViewVariables]
-        [DataField("id", required: true)]
+        [IdDataField]
         public string ID { get; } = default!;
 
         [DataField("name")]
@@ -27,13 +23,13 @@ namespace Content.Shared.Research.Prototypes
         [DataField("description")]
         private string _description = string.Empty;
 
-        [DataField("result")]
+        [DataField("result", customTypeSerializer:typeof(PrototypeIdSerializer<EntityPrototype>))]
         private string _result = string.Empty;
 
         [DataField("completetime")]
-        private int _completeTime = 2500;
+        private TimeSpan _completeTime = TimeSpan.FromSeconds(5);
 
-        [DataField("materials", customTypeSerializer:typeof(PrototypeIdDictionarySerializer<int, MaterialPrototype>))]
+        [DataField("materials", customTypeSerializer: typeof(PrototypeIdDictionarySerializer<int, MaterialPrototype>))]
         private Dictionary<string, int> _requiredMaterials = new();
 
         /// <summary>
@@ -46,7 +42,6 @@ namespace Content.Shared.Research.Prototypes
             {
                 if (_name.Trim().Length != 0) return _name;
                 var protoMan = IoCManager.Resolve<IPrototypeManager>();
-                if (protoMan == null) return _description;
                 protoMan.TryIndex(_result, out EntityPrototype? prototype);
                 if (prototype?.Name != null)
                     _name = prototype.Name;
@@ -64,7 +59,6 @@ namespace Content.Shared.Research.Prototypes
             {
                 if (_description.Trim().Length != 0) return _description;
                 var protoMan = IoCManager.Resolve<IPrototypeManager>();
-                if (protoMan == null) return _description;
                 protoMan.TryIndex(_result, out EntityPrototype? prototype);
                 if (prototype?.Description != null)
                     _description = prototype.Description;
@@ -101,6 +95,9 @@ namespace Content.Shared.Research.Prototypes
         ///     Might lower depending on the lathe's upgrade level.
         /// </summary>
         [ViewVariables]
-        public int CompleteTime => _completeTime;
+        public TimeSpan CompleteTime => _completeTime;
+
+        [DataField("applyMaterialDiscount")]
+        public bool ApplyMaterialDiscount = true;
     }
 }

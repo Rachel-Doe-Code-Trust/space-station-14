@@ -14,7 +14,7 @@ namespace Content.Client.Atmos.UI
     /// Client-side UI used to control a gas filter.
     /// </summary>
     [GenerateTypedNameReferences]
-    public partial class GasFilterWindow : SS14Window
+    public sealed partial class GasFilterWindow : DefaultWindow
     {
         private readonly ButtonGroup _buttonGroup = new();
 
@@ -75,6 +75,12 @@ namespace Content.Client.Atmos.UI
 
         private void PopulateGasList(IEnumerable<GasPrototype> gases)
         {
+            GasList.Add(new ItemList.Item(GasList)
+            {
+                Metadata = null,
+                Text = Loc.GetString("comp-gas-filter-ui-filter-gas-none")
+            });
+
             foreach (GasPrototype gas in gases)
             {
                 GasList.Add(GetGasItem(gas.ID, gas.Name, GasList));

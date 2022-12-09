@@ -4,7 +4,6 @@ using Robust.Client.ResourceManagement;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
 using Robust.Client.UserInterface.CustomControls;
-using Robust.Shared.Utility;
 using Robust.Shared.Maths;
 
 namespace Content.Client.Stylesheets
@@ -39,58 +38,30 @@ namespace Content.Client.Stylesheets
         protected StyleBoxTexture BaseButtonSquare { get; }
 
         protected StyleBoxTexture BaseAngleRect { get; }
-
-        protected IFontLibrary FontLib { get; }
+        protected StyleBoxTexture AngleBorderRect { get; }
 
         protected StyleBase(IResourceCache resCache)
         {
-            FontLib = new FontLibrary(
-                new FontClass(Id: "notosans", Style: (FontStyle) default, Size: (FontSize) 12)
-            ) as IFontLibrary;
-
-            FontLib.AddFont("notosans",
-                new FontVariant
-                (
-                    FontStyle.Normal,
-                    new []
-                    {
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSans-Regular.ttf"),
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSansSymbols-Regular.ttf"),
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSansSymbols2-Regular.ttf")
-                    }
-                ),
-                new FontVariant
-                (
-                    FontStyle.Italic,
-                    new []
-                    {
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSans-Italic.ttf"),
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSansSymbols-Regular.ttf"),
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSansSymbols2-Regular.ttf")
-                    }
-                ),
-                new FontVariant
-                (
-                    FontStyle.Bold,
-                    new []
-                    {
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSans-Bold.ttf"),
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSansSymbols-Bold.ttf"),
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSansSymbols2-Regular.ttf")
-                    }
-                ),
-                new FontVariant
-                (
-                    FontStyle.Bold | FontStyle.Italic,
-                    new []
-                    {
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSans-BoldItalic.ttf"),
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSansSymbols-Bold.ttf"),
-                        resCache.GetResource<FontResource>("/Fonts/NotoSans/NotoSansSymbols2-Regular.ttf")
-                    }
-                )
+            var notoSans12 = resCache.GetFont
+            (
+                new []
+                {
+                    "/Fonts/NotoSans/NotoSans-Regular.ttf",
+                    "/Fonts/NotoSans/NotoSansSymbols-Regular.ttf",
+                    "/Fonts/NotoSans/NotoSansSymbols2-Regular.ttf"
+                },
+                12
             );
-
+            var notoSans12Italic = resCache.GetFont
+            (
+                new []
+                {
+                    "/Fonts/NotoSans/NotoSans-Italic.ttf",
+                    "/Fonts/NotoSans/NotoSansSymbols-Regular.ttf",
+                    "/Fonts/NotoSans/NotoSansSymbols2-Regular.ttf"
+                },
+                12
+            );
             var textureCloseButton = resCache.GetTexture("/Textures/Interface/Nano/cross.svg.png");
 
             // Button styles.
@@ -144,6 +115,12 @@ namespace Content.Client.Stylesheets
             };
             BaseAngleRect.SetPatchMargin(StyleBox.Margin.All, 10);
 
+            AngleBorderRect = new StyleBoxTexture
+            {
+                Texture = resCache.GetTexture("/Textures/Interface/Nano/geometric_panel_border.svg.96dpi.png"),
+            };
+            AngleBorderRect.SetPatchMargin(StyleBox.Margin.All, 10);
+
             var vScrollBarGrabberNormal = new StyleBoxFlat
             {
                 BackgroundColor = Color.Gray.WithAlpha(0.35f), ContentMarginLeftOverride = DefaultGrabberSize,
@@ -181,8 +158,7 @@ namespace Content.Client.Stylesheets
                     new SelectorElement(null, null, null, null),
                     new[]
                     {
-                        new StyleProperty("font-library", FontLib),
-                        new StyleProperty("font", new FontClass("notosans", (FontStyle) default, (FontSize) 12)),
+                        new StyleProperty("font", notoSans12),
                     }),
 
                 // Default font.
@@ -190,12 +166,12 @@ namespace Content.Client.Stylesheets
                     new SelectorElement(null, new[] {StyleClassItalic}, null, null),
                     new[]
                     {
-                        new StyleProperty("font", new FontClass("notosans", FontStyle.Italic, (FontSize) 12)),
+                        new StyleProperty("font", notoSans12Italic),
                     }),
 
                 // Window close button base texture.
                 new StyleRule(
-                    new SelectorElement(typeof(TextureButton), new[] {SS14Window.StyleClassWindowCloseButton}, null,
+                    new SelectorElement(typeof(TextureButton), new[] {DefaultWindow.StyleClassWindowCloseButton}, null,
                         null),
                     new[]
                     {
@@ -204,7 +180,7 @@ namespace Content.Client.Stylesheets
                     }),
                 // Window close button hover.
                 new StyleRule(
-                    new SelectorElement(typeof(TextureButton), new[] {SS14Window.StyleClassWindowCloseButton}, null,
+                    new SelectorElement(typeof(TextureButton), new[] {DefaultWindow.StyleClassWindowCloseButton}, null,
                         new[] {TextureButton.StylePseudoClassHover}),
                     new[]
                     {
@@ -212,7 +188,7 @@ namespace Content.Client.Stylesheets
                     }),
                 // Window close button pressed.
                 new StyleRule(
-                    new SelectorElement(typeof(TextureButton), new[] {SS14Window.StyleClassWindowCloseButton}, null,
+                    new SelectorElement(typeof(TextureButton), new[] {DefaultWindow.StyleClassWindowCloseButton}, null,
                         new[] {TextureButton.StylePseudoClassPressed}),
                     new[]
                     {

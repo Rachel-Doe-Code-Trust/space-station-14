@@ -1,8 +1,5 @@
 ﻿using Content.Shared.Examine;
-using Robust.Shared.Localization;
-using Robust.Shared.Serialization.Manager.Attributes;
 using Robust.Shared.Utility;
-using Robust.Shared.Utility.Markup;
 
 namespace Content.Shared.Construction.Steps
 {
@@ -10,19 +7,19 @@ namespace Content.Shared.Construction.Steps
     {
         [DataField("name")] public string Name { get; private set; } = string.Empty;
 
-        [DataField("icon")] public SpriteSpecifier? Icon { get; private set; } = null;
+        [DataField("icon")] public SpriteSpecifier? Icon { get; private set; }
 
         public override void DoExamine(ExaminedEvent examinedEvent)
         {
             if (string.IsNullOrEmpty(Name))
                 return;
 
-            examinedEvent.Message.AddMessage(Basic.RenderMarkup(Loc.GetString("construction-insert-arbitrary-entity", ("stepName", Name))));
+            examinedEvent.Message.AddMarkup(Loc.GetString("construction-insert-arbitrary-entity", ("stepName", Name)));
         }
 
         public override ConstructionGuideEntry GenerateGuideEntry()
         {
-            return new ConstructionGuideEntry()
+            return new ConstructionGuideEntry
             {
                 Localization = "construction-presenter-arbitrary-step",
                 Arguments = new (string, object)[]{("name", Name)},

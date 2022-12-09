@@ -1,18 +1,43 @@
+using Content.Server.Cargo.Systems;
 using Content.Server.Power.Components;
+using Content.Shared.Examine;
 using JetBrains.Annotations;
-using Robust.Shared.GameObjects;
 
 namespace Content.Server.Power.EntitySystems
 {
     [UsedImplicitly]
-    public class BatterySystem : EntitySystem
+    public sealed class BatterySystem : EntitySystem
     {
         public override void Initialize()
         {
             base.Initialize();
 
+            SubscribeLocalEvent<ExaminableBatteryComponent, ExaminedEvent>(OnExamine);
+            SubscribeLocalEvent<BatteryComponent, PriceCalculationEvent>(CalculateBatteryPrice);
+
             SubscribeLocalEvent<NetworkBatteryPreSync>(PreSync);
             SubscribeLocalEvent<NetworkBatteryPostSync>(PostSync);
+        }
+
+        private void OnExamine(EntityUid uid, ExaminableBatteryComponent component, ExaminedEvent args)
+        {
+            if (!TryComp<BatteryComponent>(uid, out var batteryComponent))
+                return;
+            if (args.IsInDetailsRange)
+            {
+                var effectiveMax = batteryComponent.MaxCharge;
+                if (effectiveMax == 0)
+                    effectiveMax = 1;
+                var chargeFraction = batteryComponent.CurrentCharge / effectiveMax;
+                var chargePercentRounded = (int) (chargeFraction * 100);
+                args.PushMarkup(
+                    Loc.GetString(
+                        "examinable-battery-component-examine-detail",
+                        ("percent", chargePercentRounded),
+                        ("markupPercentColor", "green")
+                    )
+                );
+            }
         }
 
         private void PreSync(NetworkBatteryPreSync ev)
@@ -40,6 +65,14 @@ namespace Content.Server.Power.EntitySystems
                 if (batt.IsFullyCharged) continue;
                 batt.CurrentCharge += comp.AutoRechargeRate * frameTime;
             }
+        }
+
+        /// <summary>
+        /// Gets the price for the power contained in an entity's battery.
+        /// </summary>
+        private void CalculateBatteryPrice(EntityUid uid, BatteryComponent component, ref PriceCalculationEvent args)
+        {
+            args.Price += component.CurrentCharge * component.PricePerJoule;
         }
     }
 }

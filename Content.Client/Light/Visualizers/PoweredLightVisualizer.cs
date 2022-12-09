@@ -1,19 +1,15 @@
-using System;
 using Content.Shared.Light;
-using Content.Shared.Sound;
 using JetBrains.Annotations;
 using Robust.Client.Animations;
 using Robust.Client.GameObjects;
 using Robust.Shared.Animations;
-using Robust.Shared.GameObjects;
-using Robust.Shared.IoC;
+using Robust.Shared.Audio;
 using Robust.Shared.Random;
-using Robust.Shared.Serialization.Manager.Attributes;
 
 namespace Content.Client.Light.Visualizers
 {
     [UsedImplicitly]
-    public class PoweredLightVisualizer : AppearanceVisualizer
+    public sealed class PoweredLightVisualizer : AppearanceVisualizer
     {
         [DataField("minBlinkingTime")] private float _minBlinkingTime = 0.5f;
         [DataField("maxBlinkingTime")] private float _maxBlinkingTime = 2;
@@ -23,6 +19,7 @@ namespace Content.Client.Light.Visualizers
 
         private Action<string>? _blinkingCallback;
 
+        [Obsolete("Subscribe to AppearanceChangeEvent instead.")]
         public override void OnChangeData(AppearanceComponent component)
         {
             base.OnChangeData(component);

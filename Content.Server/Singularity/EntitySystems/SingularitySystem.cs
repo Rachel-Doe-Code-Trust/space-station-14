@@ -1,26 +1,27 @@
-using System.Collections.Generic;
 using Content.Server.Ghost.Components;
 using Content.Server.Singularity.Components;
+using Content.Server.Station.Components;
 using Content.Shared.Singularity;
 using Content.Shared.Singularity.Components;
 using JetBrains.Annotations;
+using Robust.Server.GameStates;
 using Robust.Shared.Containers;
-using Robust.Shared.GameObjects;
-using Robust.Shared.IoC;
 using Robust.Shared.Map;
-using Robust.Shared.Maths;
+using Robust.Shared.Map.Components;
 using Robust.Shared.Physics;
+using Robust.Shared.Physics.Components;
 using Robust.Shared.Physics.Dynamics;
+using Robust.Shared.Physics.Events;
 
 namespace Content.Server.Singularity.EntitySystems
 {
     [UsedImplicitly]
     public sealed class SingularitySystem : SharedSingularitySystem
     {
-        [Dependency] private readonly IEntityLookup _lookup = default!;
+        [Dependency] private readonly EntityLookupSystem _lookup = default!;
         [Dependency] private readonly IMapManager _mapManager = default!;
         [Dependency] private readonly SharedContainerSystem _container = default!;
-
+        [Dependency] private readonly PVSOverrideSystem _pvs = default!;
         /// <summary>
         /// How much energy the singulo gains from destroying a tile.
         /// </summary>
@@ -36,11 +37,19 @@ namespace Content.Server.Singularity.EntitySystems
         {
             base.Initialize();
             SubscribeLocalEvent<ServerSingularityComponent, StartCollideEvent>(OnCollide);
+            SubscribeLocalEvent<SingularityDistortionComponent, ComponentStartup>(OnDistortionStartup);
         }
 
-        protected override bool PreventCollide(EntityUid uid, SharedSingularityComponent component, PreventCollideEvent args)
+        private void OnDistortionStartup(EntityUid uid, SingularityDistortionComponent component, ComponentStartup args)
         {
-            if (base.PreventCollide(uid, component, args)) return true;
+            // to avoid distortion overlay pop-in, entities with distortion ignore PVS. Really this should probably be a
+            // PVS range-override, but this is good enough for now.
+            _pvs.AddGlobalOverride(uid);
+        }
+
+        protected override bool PreventCollide(EntityUid uid, SharedSingularityComponent component, ref PreventCollideEvent args)
+        {
+            if (base.PreventCollide(uid, component, ref args)) return true;
 
             var otherUid = args.BodyB.Owner;
 
@@ -48,12 +57,12 @@ namespace Content.Server.Singularity.EntitySystems
 
             // If it's not cancelled then we'll cancel if we can't immediately destroy it on collision
             if (!CanDestroy(component, otherUid))
-                args.Cancel();
+                args.Cancelled = true;
 
             return true;
         }
 
-        private void OnCollide(EntityUid uid, ServerSingularityComponent component, StartCollideEvent args)
+        private void OnCollide(EntityUid uid, ServerSingularityComponent component, ref StartCollideEvent args)
         {
             if (args.OurFixture.ID != "DeleteCircle") return;
 
@@ -122,11 +131,12 @@ namespace Content.Server.Singularity.EntitySystems
         private bool CanDestroy(SharedSingularityComponent component, EntityUid entity)
         {
             return entity != component.Owner &&
-                   !EntityManager.HasComponent<IMapGridComponent>(entity) &&
+                   !EntityManager.HasComponent<MapGridComponent>(entity) &&
                    !EntityManager.HasComponent<GhostComponent>(entity) &&
+                   !EntityManager.HasComponent<StationDataComponent>(entity) && // these SHOULD be in null-space... but just in case. Also, maybe someone moves a singularity there..
                    (component.Level > 4 ||
                    !EntityManager.HasComponent<ContainmentFieldComponent>(entity) &&
-                   !EntityManager.HasComponent<ContainmentFieldGeneratorComponent>(entity));
+                   !(EntityManager.TryGetComponent<ContainmentFieldGeneratorComponent>(entity, out var fieldGen) && fieldGen.IsConnected));
         }
 
         private void HandleDestroy(ServerSingularityComponent component, EntityUid entity)
@@ -171,7 +181,7 @@ namespace Content.Server.Singularity.EntitySystems
         private bool CanPull(EntityUid entity)
         {
             return !(EntityManager.HasComponent<GhostComponent>(entity) ||
-                   EntityManager.HasComponent<IMapGridComponent>(entity) ||
+                   EntityManager.HasComponent<MapGridComponent>(entity) ||
                    EntityManager.HasComponent<MapComponent>(entity) ||
                    EntityManager.HasComponent<ServerSingularityComponent>(entity) ||
                    _container.IsEntityInContainer(entity));
@@ -191,16 +201,16 @@ namespace Content.Server.Singularity.EntitySystems
             {
                 // I tried having it so level 6 can de-anchor. BAD IDEA, MASSIVE LAG.
                 if (entity == component.Owner ||
-                    !EntityManager.TryGetComponent<PhysicsComponent?>(entity, out var collidableComponent) ||
+                    !TryComp<PhysicsComponent?>(entity, out var collidableComponent) ||
                     collidableComponent.BodyType == BodyType.Static) continue;
 
                 if (!CanPull(entity)) continue;
 
-                var vec = worldPos - EntityManager.GetComponent<TransformComponent>(entity).WorldPosition;
+                var vec = worldPos - Transform(entity).WorldPosition;
 
                 if (vec.Length < destroyRange - 0.01f) continue;
 
-                var speed = vec.Length * component.Level * collidableComponent.Mass * 100f;
+                var speed = 1f / vec.Length * component.Level * collidableComponent.Mass * 10f;
 
                 // Because tile friction is so high we'll just multiply by mass so stuff like closets can even move.
                 collidableComponent.ApplyLinearImpulse(vec.Normalized * speed * frameTime);

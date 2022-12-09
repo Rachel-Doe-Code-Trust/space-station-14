@@ -8,11 +8,12 @@ using Robust.Shared.Serialization.Manager.Attributes;
 namespace Content.Client.MachineLinking
 {
     [UsedImplicitly]
-    public class SignalSwitchVisualizer : AppearanceVisualizer
+    public sealed class SignalSwitchVisualizer : AppearanceVisualizer
     {
         [DataField("layer")]
         private int Layer { get; }
 
+        [Obsolete("Subscribe to your component being initialised instead.")]
         public override void InitializeEntity(EntityUid entity)
         {
             base.InitializeEntity(entity);
@@ -23,6 +24,7 @@ namespace Content.Client.MachineLinking
             }
         }
 
+        [Obsolete("Subscribe to AppearanceChangeEvent instead.")]
         public override void OnChangeData(AppearanceComponent component)
         {
             base.OnChangeData(component);

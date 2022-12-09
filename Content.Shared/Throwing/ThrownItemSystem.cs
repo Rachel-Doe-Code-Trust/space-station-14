@@ -4,12 +4,13 @@ using Content.Shared.Hands.Components;
 using Content.Shared.Physics;
 using Content.Shared.Physics.Pull;
 using Robust.Shared.Containers;
-using Robust.Shared.GameObjects;
 using Robust.Shared.GameStates;
-using Robust.Shared.IoC;
-using Robust.Shared.Log;
 using Robust.Shared.Physics;
 using Robust.Shared.Physics.Dynamics;
+using System.Linq;
+using Robust.Shared.Physics.Components;
+using Robust.Shared.Physics.Events;
+using Robust.Shared.Physics.Systems;
 
 namespace Content.Shared.Throwing
 {
@@ -19,7 +20,7 @@ namespace Content.Shared.Throwing
     public sealed class ThrownItemSystem : EntitySystem
     {
         [Dependency] private readonly SharedContainerSystem _containerSystem = default!;
-        [Dependency] private readonly SharedAdminLogSystem _adminLogSystem = default!;
+        [Dependency] private readonly ISharedAdminLogManager _adminLogger = default!;
         [Dependency] private readonly FixtureSystem _fixtures = default!;
 
         private const string ThrowingFixture = "throw-fixture";
@@ -27,7 +28,7 @@ namespace Content.Shared.Throwing
         public override void Initialize()
         {
             base.Initialize();
-            SubscribeLocalEvent<ThrownItemComponent, PhysicsSleepMessage>(HandleSleep);
+            SubscribeLocalEvent<ThrownItemComponent, PhysicsSleepEvent>(OnSleep);
             SubscribeLocalEvent<ThrownItemComponent, StartCollideEvent>(HandleCollision);
             SubscribeLocalEvent<ThrownItemComponent, PreventCollideEvent>(PreventCollision);
             SubscribeLocalEvent<ThrownItemComponent, ThrownEvent>(ThrowItem);
@@ -54,21 +55,26 @@ namespace Content.Shared.Throwing
 
         private void ThrowItem(EntityUid uid, ThrownItemComponent component, ThrownEvent args)
         {
-            if (!EntityManager.TryGetComponent(component.Owner, out PhysicsComponent? physicsComponent) ||
-                physicsComponent.Fixtures.Count != 1) return;
+            if (!EntityManager.TryGetComponent(component.Owner, out FixturesComponent? fixturesComponent) ||
+                fixturesComponent.Fixtures.Count != 1) return;
+            if (!EntityManager.TryGetComponent(component.Owner, out PhysicsComponent? physicsComponent)) return;
 
-            if (_fixtures.GetFixtureOrNull(physicsComponent, ThrowingFixture) != null)
+            if (fixturesComponent.Fixtures.ContainsKey(ThrowingFixture))
             {
                 Logger.Error($"Found existing throwing fixture on {component.Owner}");
                 return;
             }
-
-            var shape = physicsComponent.Fixtures[0].Shape;
-            _fixtures.CreateFixture(physicsComponent, new Fixture(physicsComponent, shape) {CollisionLayer = (int) CollisionGroup.ThrownItem, Hard = false, ID = ThrowingFixture});
+            var fixture = fixturesComponent.Fixtures.Values.First();
+            var shape = fixture.Shape;
+            var throwingFixture = new Fixture(physicsComponent, shape) { CollisionMask = (int) CollisionGroup.ThrownItem, Hard = false, ID = ThrowingFixture };
+            _fixtures.TryCreateFixture(physicsComponent, throwingFixture, manager: fixturesComponent);
         }
 
-        private void HandleCollision(EntityUid uid, ThrownItemComponent component, StartCollideEvent args)
+        private void HandleCollision(EntityUid uid, ThrownItemComponent component, ref StartCollideEvent args)
         {
+            if (args.OtherFixture.Hard == false)
+                return;
+
             var thrower = component.Thrower;
             var otherBody = args.OtherFixture.Body;
 
@@ -76,15 +82,15 @@ namespace Content.Shared.Throwing
             ThrowCollideInteraction(thrower, args.OurFixture.Body, otherBody);
         }
 
-        private void PreventCollision(EntityUid uid, ThrownItemComponent component, PreventCollideEvent args)
+        private void PreventCollision(EntityUid uid, ThrownItemComponent component, ref PreventCollideEvent args)
         {
             if (args.BodyB.Owner == component.Thrower)
             {
-                args.Cancel();
+                args.Cancelled = true;
             }
         }
 
-        private void HandleSleep(EntityUid uid, ThrownItemComponent thrownItem, PhysicsSleepMessage message)
+        private void OnSleep(EntityUid uid, ThrownItemComponent thrownItem, ref PhysicsSleepEvent @event)
         {
             StopThrow(uid, thrownItem);
         }
@@ -108,7 +114,7 @@ namespace Content.Shared.Throwing
                 }
             }
 
-            EntityManager.EventBus.RaiseLocalEvent(uid, new StopThrowEvent {User = thrownItemComponent.Thrower});
+            EntityManager.EventBus.RaiseLocalEvent(uid, new StopThrowEvent {User = thrownItemComponent.Thrower}, true);
             EntityManager.RemoveComponent<ThrownItemComponent>(uid);
         }
 
@@ -128,7 +134,7 @@ namespace Content.Shared.Throwing
 
             // Assume it's uninteresting if it has no thrower. For now anyway.
             if (thrownItem.Thrower is not null)
-                _adminLogSystem.Add(LogType.Landed, LogImpact.Low, $"{ToPrettyString(landing):entity} thrown by {ToPrettyString(thrownItem.Thrower.Value):thrower} landed.");
+                _adminLogger.Add(LogType.Landed, LogImpact.Low, $"{ToPrettyString(landing):entity} thrown by {ToPrettyString(thrownItem.Thrower.Value):thrower} landed.");
 
             var landMsg = new LandEvent {User = thrownItem.Thrower};
             RaiseLocalEvent(landing, landMsg, false);
@@ -140,11 +146,11 @@ namespace Content.Shared.Throwing
         public void ThrowCollideInteraction(EntityUid? user, IPhysBody thrown, IPhysBody target)
         {
             if (user is not null)
-                _adminLogSystem.Add(LogType.ThrowHit, LogImpact.Low,
+                _adminLogger.Add(LogType.ThrowHit, LogImpact.Low,
                     $"{ToPrettyString(thrown.Owner):thrown} thrown by {ToPrettyString(user.Value):thrower} hit {ToPrettyString(target.Owner):target}.");
             // TODO: Just pass in the bodies directly
-            RaiseLocalEvent(target.Owner, new ThrowHitByEvent(user, thrown.Owner, target.Owner));
-            RaiseLocalEvent(thrown.Owner, new ThrowDoHitEvent(user, thrown.Owner, target.Owner));
+            RaiseLocalEvent(target.Owner, new ThrowHitByEvent(user, thrown.Owner, target.Owner), true);
+            RaiseLocalEvent(thrown.Owner, new ThrowDoHitEvent(user, thrown.Owner, target.Owner), true);
         }
     }
 }
